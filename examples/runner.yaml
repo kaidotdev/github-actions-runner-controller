@@ -1,0 +1,10 @@
+apiVersion: github-actions-runner.kaidotdev.github.io/v1alpha1
+kind: Runner
+metadata:
+  name: example
+spec:
+  image: ubuntu:18.04
+  repository: kaidotdev/github-actions-runner-controller
+  tokenSecretKeyRef:
+    name: credentials
+    key: TOKEN

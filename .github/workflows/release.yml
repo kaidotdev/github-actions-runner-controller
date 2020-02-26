@@ -1,0 +1,49 @@
+name: Release
+on:
+  create:
+    tags:
+      - v*.*.*
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-18.04
+    env:
+      OWNER: kaidotdev
+      REPOSITORY_NAME: github-actions-runner-controller
+      IMAGE_NAME: github-actions-runner-controller
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13.8
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v1
+        with:
+          version: latest
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache docker build
+        id: cache
+        uses: actions/cache@v1
+        with:
+          path: /home/runner/.cache/docker-build
+          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}{1}', github.workspace, '/Dockerfile')) }}-${{ hashFiles(format('{0}{1}', github.workspace, '/go.sum')) }}-${{ hashFiles(format('{0}{1}', github.workspace, '/**/*.go')) }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v1
+        with:
+          version: v0.3.1
+      - name: Publish
+        run: |
+          IMAGE_PATH=docker.pkg.github.com/${OWNER}/${REPOSITORY_NAME}/${IMAGE_NAME}
+          TAG=${GITHUB_REF##*/}
+          CACHE_FROM_OPT=''
+          [ -d /home/runner/.cache/docker-build ] && CACHE_FROM_OPT='--cache-from type=local,src=/home/runner/.cache/docker-build'
+          docker buildx build --output type=docker,name=$IMAGE_PATH:$TAG,push=false $CACHE_FROM_OPT --cache-to type=local,mode=max,dest=/home/runner/.cache/docker-build .
+          docker login docker.pkg.github.com -u $OWNER -p ${{ secrets.GITHUB_TOKEN }}
+          docker push $IMAGE_PATH:$TAG

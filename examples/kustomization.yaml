@@ -1,0 +1,11 @@
+resources:
+  - runner.yaml
+
+configurations:
+  - kustomizeconfig.yaml
+
+secretGenerator:
+  - name: credentials
+    files:
+      - TOKEN
+    type: Opaque

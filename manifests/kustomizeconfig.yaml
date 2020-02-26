@@ -1,0 +1,15 @@
+namereference:
+  - kind: Service
+    version: v1
+    fieldSpecs:
+      - path: rules/resourceNames
+        kind: Role
+      - path: rules/resourceNames
+        kind: ClusterRole
+  - kind: ConfigMap
+    version: v1
+    fieldSpecs:
+      - path: rules/resourceNames
+        kind: Role
+      - path: rules/resourceNames
+        kind: ClusterRole

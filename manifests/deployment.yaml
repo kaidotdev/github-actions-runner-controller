@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-actions-runner-controller
+spec:
+  selector:
+    matchLabels:
+      app: github-actions-runner-controller
+  replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: github-actions-runner-controller
+    spec:
+      serviceAccountName: github-actions-runner-controller
+      securityContext:
+        sysctls:
+          # https://github.com/kubernetes/kubernetes/pull/54896
+          #- name: net.core.somaxconn
+          #  value: "65535"
+          - name: net.ipv4.ip_local_port_range
+            value: "10000 65535"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - github-actions-runner-controller
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+      initContainers:
+        - name: fetch-nodeport
+          image: bitnami/kubectl:1.16.3
+          command:
+            - sh
+          args:
+            - -c
+            - kubectl patch configmap/$(CONFIGMAP_NAME) -n $(NAMESPACE) -p '{"data":{"NODEPORT":"'`kubectl get service $(SERVICE_NAME) -n $(NAMESPACE) -o jsonpath='{$.spec.ports[0].nodePort}'`'"}}'
+          env:
+            - name: SERVICE_NAME
+              value: $(SERVICE_NAME)
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIGMAP_NAME
+              value: $(CONFIGMAP_NAME)
+      containers:
+        - name: controller
+          image: docker.pkg.github.com/kaidotdev/github-actions-runner-controller/github-actions-runner-controller:v0.1.0
+          imagePullPolicy: Always
+          args:
+            - --metrics-addr=0.0.0.0:8080
+            - --enable-leader-election
+            - --push-registry-host=$(SERVICE_NAME)-0.$(SERVICE_NAME).$(NAMESPACE).svc.cluster.local:5000
+            - --pull-registry-host=127.0.0.1:$(NODEPORT)
+          env:
+            - name: SERVICE_NAME
+              value: $(SERVICE_NAME)
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODEPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: metadata
+                  key: NODEPORT
+          ports:
+            - containerPort: 8080

@@ -1,0 +1,10 @@
+namespace: github-actions-runner-controller
+
+bases:
+  - ../manifests
+
+resources:
+  - namespace.yaml
+
+patchesStrategicMerge:
+  - deployment.yaml

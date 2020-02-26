@@ -1,0 +1,9 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: github-actions-runner-controller
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: github-actions-runner-controller
