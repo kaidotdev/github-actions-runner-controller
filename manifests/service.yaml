@@ -6,7 +6,7 @@ spec:
   type: NodePort
   ports:
     - port: 5000
-      protocol: "TCP"
+      protocol: TCP
       targetPort: 5000
   selector:
     app: registry
