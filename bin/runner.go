@@ -87,8 +87,8 @@ func install() {
 	}
 }
 
-func getRegistrationToken(repo string, token string) string {
-	request, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/repos/%s/actions/runners/registration-token", repo), nil)
+func getRegistrationToken(repository string, token string) string {
+	request, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/repos/%s/actions/runners/registration-token", repository), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
