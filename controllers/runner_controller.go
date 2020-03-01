@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
+const (
 	ownerKey    = ".metadata.controller"
 	kanikoImage = "gcr.io/kaniko-project/executor:v0.17.1"
 	version     = "0.1.0"

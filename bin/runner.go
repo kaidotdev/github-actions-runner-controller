@@ -20,8 +20,8 @@ import (
 	expect "github.com/google/goexpect"
 )
 
-var (
-	RunnerVersion = "2.165.2"
+const (
+	runnerVersion = "2.165.2"
 )
 
 type RegistrationTokenResponse struct {
@@ -36,7 +36,7 @@ func check() {
 }
 
 func install() {
-	request, err := http.NewRequest("GET", fmt.Sprintf("https://github.com/actions/runner/releases/download/v%s/actions-runner-linux-x64-%s.tar.gz", RunnerVersion, RunnerVersion), nil)
+	request, err := http.NewRequest("GET", fmt.Sprintf("https://github.com/actions/runner/releases/download/v%s/actions-runner-linux-x64-%s.tar.gz", runnerVersion, runnerVersion), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
