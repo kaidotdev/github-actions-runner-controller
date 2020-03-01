@@ -91,6 +91,30 @@ spec:
           value: bar
 ```
 
+Therefore, when combined with [DirectXMan12/k8s-prometheus-adapter](https://github.com/DirectXMan12/k8s-prometheus-adapter), it is possible to scale according to runner metrics using by HPA.
+
+```shell
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: example-runner
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: example
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: github_actions_runs_queued
+        target:
+          type: AverageValue
+          averageValue: 3
+```
+
 ## How to develop
 
 ### `skaffold dev`
