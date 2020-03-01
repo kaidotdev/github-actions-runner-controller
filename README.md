@@ -75,6 +75,11 @@ spec:
       labels:
         version: v1
       annotations:
+        # `--enable-runner-metrics` is required to scrape from prometheus
+        prometheus.io/scrape: "true"
+        prometheus.io/schema: "http"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
         sidecar.istio.io/inject: "false"
     spec:
       env:

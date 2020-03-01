@@ -32,11 +32,13 @@ func main() {
 	var enableLeaderElection bool
 	var pushRegistryHost string
 	var pullRegistryHost string
+	var enableRunnerMetrics bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager.")
 	flag.StringVar(&pushRegistryHost, "push-registry-host", "docker.pkg.github.com/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as push destination.")
 	flag.StringVar(&pullRegistryHost, "pull-registry-host", "docker.pkg.github.com/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as pull source.")
+	flag.BoolVar(&enableRunnerMetrics, "enable-runner-metrics", false, "Enable to expose runner metrics using by prometheus exporter.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -53,12 +55,13 @@ func main() {
 	}
 
 	if err := (&controllers.RunnerReconciler{
-		Client:           mgr.GetClient(),
-		Log:              ctrl.Log.WithName("controllers").WithName("Runner"),
-		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor("github-actions-runner-controller"),
-		PushRegistryHost: pushRegistryHost,
-		PullRegistryHost: pullRegistryHost,
+		Client:              mgr.GetClient(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("Runner"),
+		Scheme:              mgr.GetScheme(),
+		Recorder:            mgr.GetEventRecorderFor("github-actions-runner-controller"),
+		PushRegistryHost:    pushRegistryHost,
+		PullRegistryHost:    pullRegistryHost,
+		EnableRunnerMetrics: enableRunnerMetrics,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Runner")
 		os.Exit(1)

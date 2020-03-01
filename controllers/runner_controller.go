@@ -26,18 +26,20 @@ import (
 )
 
 const (
-	ownerKey    = ".metadata.controller"
-	kanikoImage = "gcr.io/kaniko-project/executor:v0.17.1"
-	version     = "0.1.0"
+	ownerKey      = ".metadata.controller"
+	kanikoImage   = "gcr.io/kaniko-project/executor:v0.17.1"
+	exporterImage = "docker.pkg.github.com/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.0"
+	version       = "0.1.0"
 )
 
 type RunnerReconciler struct {
 	client.Client
-	Log              logr.Logger
-	Scheme           *runtime.Scheme
-	Recorder         record.EventRecorder
-	PushRegistryHost string
-	PullRegistryHost string
+	Log                 logr.Logger
+	Scheme              *runtime.Scheme
+	Recorder            record.EventRecorder
+	PushRegistryHost    string
+	PullRegistryHost    string
+	EnableRunnerMetrics bool
 }
 
 func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -131,6 +133,48 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 	}
 	env = append(env, runner.Spec.Template.Spec.Env...)
 
+	containers := []v1.Container{
+		{
+			Name:            "runner",
+			Image:           fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
+			ImagePullPolicy: v1.PullAlways,
+			Command: []string{
+				"./runner",
+			},
+			Args: []string{
+				"--without-install",
+				"--repository",
+				"$(REPOSITORY)",
+				"--token",
+				"$(TOKEN)",
+				"--hostname",
+				"$(HOSTNAME)",
+			},
+			Env: env,
+		},
+	}
+	if r.EnableRunnerMetrics {
+		containers = append(containers, v1.Container{
+			Name:            "exporter",
+			Image:           exporterImage,
+			ImagePullPolicy: v1.PullAlways,
+			Args: []string{
+				"server",
+				"--api-address=0.0.0.0:8000",
+				"--monitor-address=0.0.0.0:9090",
+				"--enable-tracing",
+				"--repository=$(REPOSITORY)",
+				"--token=$(TOKEN)",
+			},
+			Env: env,
+			Ports: []coreV1.ContainerPort{
+				{
+					ContainerPort: 9090,
+				},
+			},
+		})
+	}
+
 	labels := map[string]string{
 		"app": runner.Name,
 	}
@@ -204,26 +248,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 							},
 						},
 					},
-					Containers: []v1.Container{
-						{
-							Name:            "runner",
-							Image:           fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
-							ImagePullPolicy: v1.PullAlways,
-							Command: []string{
-								"./runner",
-							},
-							Args: []string{
-								"--without-install",
-								"--repository",
-								"$(REPOSITORY)",
-								"--token",
-								"$(TOKEN)",
-								"--hostname",
-								"$(HOSTNAME)",
-							},
-							Env: env,
-						},
-					},
+					Containers: containers,
 					Volumes: []v1.Volume{
 						{
 							Name: "workspace",
