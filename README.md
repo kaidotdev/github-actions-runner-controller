@@ -59,7 +59,7 @@ UBUNTU_CODENAME=bionic
 
 You can pass additional information to runner pod via `template`.
 
-```shell
+```yaml
 apiVersion: github-actions-runner.kaidotdev.github.io/v1alpha1
 kind: Runner
 metadata:
@@ -93,7 +93,21 @@ spec:
 
 Therefore, when combined with [DirectXMan12/k8s-prometheus-adapter](https://github.com/DirectXMan12/k8s-prometheus-adapter), it is possible to scale according to runner metrics using by HPA.
 
-```shell
+```yaml
+    - seriesQuery: 'github_actions_runs{status="queued"}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "^(.*)$"
+        as: "${1}_queued"
+      metricsQuery: <<.Series>>{<<.LabelMatchers>>}
+```
+
+```yaml
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
