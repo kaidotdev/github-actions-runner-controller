@@ -32,6 +32,25 @@ spec:
         spec:
           description: RunnerSpec defines the desired state of Runner
           properties:
+            builderResources:
+              description: 'Compute Resources required by this container. Cannot be
+                updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+              properties:
+                limits:
+                  additionalProperties:
+                    type: string
+                  description: 'Limits describes the maximum amount of compute resources
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    type: string
+                  description: 'Requests describes the minimum amount of compute resources
+                    required. If Requests is omitted for a container, it defaults
+                    to Limits if that is explicitly specified, otherwise to an implementation-defined
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
             image:
               description: Image using by self-hosted runner
               type: string

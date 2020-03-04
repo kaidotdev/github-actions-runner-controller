@@ -244,6 +244,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 									MountPath: "/workspace",
 								},
 							},
+							Resources: runner.Spec.BuilderResources,
 						},
 					},
 					Containers: containers,
