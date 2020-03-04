@@ -57,25 +57,48 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	configMap := r.buildConfigMap(runner)
+	workspaceConfigMap := r.buildWorkspaceConfigMap(runner)
 
-	var foundConfigMap v1.ConfigMap
+	var foundWorkspaceConfigMap v1.ConfigMap
 	if err := r.Client.Get(
 		ctx,
 		client.ObjectKey{
-			Name:      req.Name,
+			Name:      req.Name + "-workspace",
 			Namespace: req.Namespace,
 		},
-		&foundConfigMap,
+		&foundWorkspaceConfigMap,
 	); errors.IsNotFound(err) {
-		if err := controllerutil.SetControllerReference(runner, configMap, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(runner, workspaceConfigMap, r.Scheme); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Create(ctx, configMap); err != nil {
+		if err := r.Create(ctx, workspaceConfigMap); err != nil {
 			return ctrl.Result{}, err
 		}
-		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created config map: %q", configMap.Name)
-		logger.V(1).Info("create", "config map", configMap)
+		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created workspace config map: %q", workspaceConfigMap.Name)
+		logger.V(1).Info("create", "config map", workspaceConfigMap)
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	dockerConfigMap := r.buildDockerConfigMap(runner)
+
+	var foundDockerConfigMap v1.ConfigMap
+	if err := r.Client.Get(
+		ctx,
+		client.ObjectKey{
+			Name:      req.Name + "-docker",
+			Namespace: req.Namespace,
+		},
+		&foundDockerConfigMap,
+	); errors.IsNotFound(err) {
+		if err := controllerutil.SetControllerReference(runner, dockerConfigMap, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.Create(ctx, dockerConfigMap); err != nil {
+			return ctrl.Result{}, err
+		}
+		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created docker config map: %q", dockerConfigMap.Name)
+		logger.V(1).Info("create", "config map", dockerConfigMap)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -243,6 +266,10 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 									Name:      "workspace",
 									MountPath: "/workspace",
 								},
+								{
+									Name:      "docker",
+									MountPath: "/kaniko/.docker",
+								},
 							},
 							Resources: runner.Spec.BuilderResources,
 						},
@@ -254,7 +281,17 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 							VolumeSource: v1.VolumeSource{
 								ConfigMap: &v1.ConfigMapVolumeSource{
 									LocalObjectReference: v1.LocalObjectReference{
-										Name: runner.Name,
+										Name: runner.Name + "-workspace",
+									},
+								},
+							},
+						},
+						{
+							Name: "docker",
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: runner.Name + "-docker",
 									},
 								},
 							},
@@ -266,10 +303,10 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 	}
 }
 
-func (r *RunnerReconciler) buildConfigMap(runner *garV1.Runner) *v1.ConfigMap {
+func (r *RunnerReconciler) buildWorkspaceConfigMap(runner *garV1.Runner) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      runner.Name,
+			Name:      runner.Name + "-workspace",
 			Namespace: runner.Namespace,
 		},
 		Data: map[string]string{
@@ -296,6 +333,18 @@ CMD ["./runner"]
 	}
 }
 
+func (r *RunnerReconciler) buildDockerConfigMap(runner *garV1.Runner) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      runner.Name + "-docker",
+			Namespace: runner.Namespace,
+		},
+		Data: map[string]string{
+			"config.json": `{"credsStore":"ecr-login"}`,
+		},
+	}
+}
+
 func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *garV1.Runner) error {
 	var configMaps v1.ConfigMapList
 	if err := r.List(
@@ -310,7 +359,7 @@ func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *ga
 	for _, configMap := range configMaps.Items {
 		configMap := configMap
 
-		if configMap.Name == runner.Name {
+		if configMap.Name == runner.Name+"-workspace" || configMap.Name == runner.Name+"-docker" {
 			continue
 		}
 
