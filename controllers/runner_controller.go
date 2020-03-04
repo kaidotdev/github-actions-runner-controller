@@ -147,7 +147,8 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 				"--token=$(TOKEN)",
 				"--hostname=$(HOSTNAME)",
 			},
-			Env: env,
+			Env:       env,
+			Resources: runner.Spec.Template.Spec.Resources,
 		},
 	}
 	if r.EnableRunnerMetrics {

@@ -32,6 +32,11 @@ type Spec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	Env []v1.EnvVar `json:"env,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,7,rep,name=env"`
+	// Compute Resources required by this container.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+	// +optional
+	Resources v1.ResourceRequirements `json:"resources,omitempty" protobuf:"bytes,8,opt,name=resources"`
 }
 
 // RunnerStatus defines the observed state of Runner
