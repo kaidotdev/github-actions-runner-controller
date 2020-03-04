@@ -47,6 +47,7 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   "github-actions-runner-controller",
 		Port:               9443,
 	})
 	if err != nil {
