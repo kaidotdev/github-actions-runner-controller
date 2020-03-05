@@ -129,6 +129,8 @@ spec:
           averageValue: 3
 ```
 
+See CRD for other available fields and detailed descriptions: [github-actions-runner.kaidotdev.github.io_attacks.yaml](https://github.com/kaidotdev/github-actions-runner-controller/blob/master/manifests/crd/github-actions-runner.kaidotdev.github.io_runner.yaml)
+
 ## How to develop
 
 ### `skaffold dev`
