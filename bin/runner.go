@@ -138,13 +138,19 @@ func run(registrationToken string, repository string, hostname string) {
 	if err := e.Send("exit\n"); err != nil {
 		log.Fatal(err)
 	}
-	if err := exec.Command("bash", "run.sh").Run(); err != nil {
+	command := exec.Command("bash", "run.sh")
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func remove(registrationToken string) {
-	if err := exec.Command("bash", "config.sh", "remove", "--token", registrationToken).Run(); err != nil {
+	command := exec.Command("bash", "config.sh", "remove", "--token", registrationToken)
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
