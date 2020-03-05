@@ -29,7 +29,7 @@ const (
 	ownerKey      = ".metadata.controller"
 	kanikoImage   = "gcr.io/kaniko-project/executor:v0.17.1"
 	exporterImage = "docker.pkg.github.com/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.0"
-	helperVersion = "0.2.1"
+	runnerVersion = "0.2.1"
 )
 
 type RunnerReconciler struct {
@@ -328,7 +328,7 @@ RUN useradd runner
 RUN chown -R runner:runner /opt/runner
 USER runner
 CMD ["./runner"]
-`, runner.Spec.Image, helperVersion, helperVersion),
+`, runner.Spec.Image, runnerVersion, runnerVersion),
 		},
 	}
 }
