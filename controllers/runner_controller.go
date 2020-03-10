@@ -273,7 +273,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 									PodAffinityTerm: v1.PodAffinityTerm{
 										LabelSelector: &metaV1.LabelSelector{
 											MatchLabels: map[string]string{
-												"app": runner.Name,
+												"app": appLabel,
 											},
 										},
 										TopologyKey: "kubernetes.io/hostname",
