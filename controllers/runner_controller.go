@@ -109,7 +109,7 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.Client.Get(
 		ctx,
 		client.ObjectKey{
-			Name:      req.Name,
+			Name:      req.Name + "-runner",
 			Namespace: req.Namespace,
 		},
 		&foundDeployment,
@@ -133,71 +133,113 @@ func (r *RunnerReconciler) buildRepositoryName(runner *garV1.Runner) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(runner.Spec.Image)))[:7]
 }
 
-func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deployment {
-	env := []coreV1.EnvVar{
-		{
-			Name:  "REPOSITORY",
-			Value: runner.Spec.Repository,
+func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Container {
+	return v1.Container{
+		Name:  "kaniko",
+		Image: kanikoImage,
+		Args: []string{
+			"--dockerfile=Dockerfile",
+			"--context=dir:///workspace",
+			"--cache=true",
+			fmt.Sprintf("--destination=%s/%s", r.PushRegistryHost, r.buildRepositoryName(runner)),
 		},
-		{
-			Name: "TOKEN",
-			ValueFrom: &coreV1.EnvVarSource{
-				SecretKeyRef: runner.Spec.TokenSecretKeyRef,
+		ImagePullPolicy: v1.PullIfNotPresent,
+		VolumeMounts: []v1.VolumeMount{
+			{
+				Name:      "workspace",
+				MountPath: "/workspace",
+			},
+			{
+				Name:      "docker",
+				MountPath: "/kaniko/.docker",
 			},
 		},
-		{
-			Name: "HOSTNAME",
-			ValueFrom: &coreV1.EnvVarSource{
-				FieldRef: &coreV1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
+		Resources: runner.Spec.BuilderContainerSpec.Resources,
+	}
+}
+
+func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Container {
+	return v1.Container{
+		Name:            "runner",
+		Image:           fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
+		ImagePullPolicy: v1.PullAlways,
+		Command: []string{
+			"./runner",
+		},
+		Args: []string{
+			"--without-install",
+			"--repository=$(REPOSITORY)",
+			"--token=$(TOKEN)",
+			"--hostname=$(HOSTNAME)",
+		},
+		Env: append([]coreV1.EnvVar{
+			{
+				Name:  "REPOSITORY",
+				Value: runner.Spec.Repository,
+			},
+			{
+				Name: "TOKEN",
+				ValueFrom: &coreV1.EnvVarSource{
+					SecretKeyRef: runner.Spec.TokenSecretKeyRef,
+				},
+			},
+			{
+				Name: "HOSTNAME",
+				ValueFrom: &coreV1.EnvVarSource{
+					FieldRef: &coreV1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+		}, runner.Spec.RunnerContainerSpec.Env...),
+		Resources: runner.Spec.RunnerContainerSpec.Resources,
+	}
+}
+
+func (r *RunnerReconciler) buildExporterContainer(runner *garV1.Runner) v1.Container {
+	return v1.Container{
+		Name:            "exporter",
+		Image:           exporterImage,
+		ImagePullPolicy: v1.PullAlways,
+		Args: []string{
+			"server",
+			"--api-address=0.0.0.0:8000",
+			"--monitor-address=0.0.0.0:9090",
+			"--enable-tracing",
+			"--repository=$(REPOSITORY)",
+			"--token=$(TOKEN)",
+		},
+		Env: []coreV1.EnvVar{
+			{
+				Name:  "REPOSITORY",
+				Value: runner.Spec.Repository,
+			},
+			{
+				Name: "TOKEN",
+				ValueFrom: &coreV1.EnvVarSource{
+					SecretKeyRef: runner.Spec.TokenSecretKeyRef,
 				},
 			},
 		},
-	}
-	env = append(env, runner.Spec.Template.Spec.Env...)
-
-	containers := []v1.Container{
-		{
-			Name:            "runner",
-			Image:           fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
-			ImagePullPolicy: v1.PullAlways,
-			Command: []string{
-				"./runner",
+		Ports: []coreV1.ContainerPort{
+			{
+				ContainerPort: 9090,
 			},
-			Args: []string{
-				"--without-install",
-				"--repository=$(REPOSITORY)",
-				"--token=$(TOKEN)",
-				"--hostname=$(HOSTNAME)",
-			},
-			Env:       env,
-			Resources: runner.Spec.Template.Spec.Resources,
 		},
+	}
+}
+
+func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deployment {
+	containers := []v1.Container{
+		r.buildRunnerContainer(runner),
 	}
 	if r.EnableRunnerMetrics {
-		containers = append(containers, v1.Container{
-			Name:            "exporter",
-			Image:           exporterImage,
-			ImagePullPolicy: v1.PullAlways,
-			Args: []string{
-				"server",
-				"--api-address=0.0.0.0:8000",
-				"--monitor-address=0.0.0.0:9090",
-				"--enable-tracing",
-				"--repository=$(REPOSITORY)",
-				"--token=$(TOKEN)",
-			},
-			Env: env,
-			Ports: []coreV1.ContainerPort{
-				{
-					ContainerPort: 9090,
-				},
-			},
-		})
+		containers = append(containers, r.buildExporterContainer(runner))
 	}
 
+	appLabel := runner.Name + "-runner"
 	labels := map[string]string{
-		"app": runner.Name,
+		"app": appLabel,
 	}
 	for k, v := range runner.Spec.Template.ObjectMeta.Labels {
 		labels[k] = v
@@ -205,13 +247,13 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 	runner.Spec.Template.ObjectMeta.Labels = labels
 	return &appsV1.Deployment{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      runner.Name,
+			Name:      runner.Name + "-runner",
 			Namespace: runner.Namespace,
 		},
 		Spec: appsV1.DeploymentSpec{
 			Selector: &metaV1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": runner.Name,
+					"app": appLabel,
 				},
 			},
 			Replicas: func(i int32) *int32 {
@@ -251,28 +293,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 						},
 					},
 					InitContainers: []v1.Container{
-						{
-							Name:  "kaniko",
-							Image: kanikoImage,
-							Args: []string{
-								"--dockerfile=Dockerfile",
-								"--context=dir:///workspace",
-								"--cache=true",
-								fmt.Sprintf("--destination=%s/%s", r.PushRegistryHost, r.buildRepositoryName(runner)),
-							},
-							ImagePullPolicy: v1.PullIfNotPresent,
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "workspace",
-									MountPath: "/workspace",
-								},
-								{
-									Name:      "docker",
-									MountPath: "/kaniko/.docker",
-								},
-							},
-							Resources: runner.Spec.BuilderResources,
-						},
+						r.buildBuilderContainer(runner),
 					},
 					Containers: containers,
 					Volumes: []v1.Volume{
@@ -382,7 +403,7 @@ func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *ga
 	for _, deployment := range deployments.Items {
 		deployment := deployment
 
-		if deployment.Name == runner.Name {
+		if deployment.Name == runner.Name+"-runner" {
 			continue
 		}
 

@@ -57,7 +57,7 @@ VERSION_CODENAME=bionic
 UBUNTU_CODENAME=bionic
 ```
 
-You can pass additional information to runner pod via `template`.
+You can pass additional information to runner pod via `builderContainerSpec`, `runnerContainerSpec`, and `template`.
 
 ```yaml
 apiVersion: github-actions-runner.kaidotdev.github.io/v1alpha1
@@ -70,6 +70,18 @@ spec:
   tokenSecretKeyRef:
     name: credentials
     key: TOKEN
+  builderContainerSpec:
+    resource:
+      requests:
+        cpu: 1000m
+  runnerContainerSpec:
+    env:
+      - name: FOO
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: BAR
+        value: bar
   template:
     metadata:
       labels:
@@ -81,14 +93,6 @@ spec:
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
         sidecar.istio.io/inject: "false"
-    spec:
-      env:
-        - name: FOO
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: BAR
-          value: bar
 ```
 
 Therefore, when combined with [DirectXMan12/k8s-prometheus-adapter](https://github.com/DirectXMan12/k8s-prometheus-adapter), it is possible to scale according to runner metrics using by HPA.
