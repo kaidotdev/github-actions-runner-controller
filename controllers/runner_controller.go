@@ -80,6 +80,14 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
+	if workspaceConfigMap != &foundWorkspaceConfigMap {
+		if err := r.Update(ctx, workspaceConfigMap); err != nil {
+			return ctrl.Result{}, err
+		}
+		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated workspace config map: %q", workspaceConfigMap.Name)
+		logger.V(1).Info("update", "config map", workspaceConfigMap)
+	}
+
 	deployment := r.buildDeployment(runner)
 
 	var foundDeployment appsV1.Deployment
@@ -101,6 +109,14 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		logger.V(1).Info("create", "deployment", deployment)
 	} else if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if deployment != &foundDeployment {
+		if err := r.Update(ctx, deployment); err != nil {
+			return ctrl.Result{}, err
+		}
+		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated deployment: %q", deployment.Name)
+		logger.V(1).Info("update", "deployment", deployment)
 	}
 
 	return ctrl.Result{}, nil
