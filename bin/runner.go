@@ -24,7 +24,7 @@ const (
 	runnerVersion = "2.165.2"
 )
 
-type RegistrationTokenResponse struct {
+type TokenResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expires_at"`
 }
@@ -107,12 +107,37 @@ func getRegistrationToken(repository string, token string) string {
 		log.Fatal(err)
 	}
 
-	var registrationTokenResponse RegistrationTokenResponse
+	var registrationTokenResponse TokenResponse
 	if err := json.Unmarshal(body, &registrationTokenResponse); err != nil {
 		log.Fatal(err)
 	}
 
 	return registrationTokenResponse.Token
+}
+
+func getRemoveToken(repository string, token string) string {
+	request, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/repos/%s/actions/runners/remove-token", repository), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	request.Header.Set("Authorization", fmt.Sprintf("token %s", token))
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var removeTokenResponse TokenResponse
+	if err := json.Unmarshal(body, &removeTokenResponse); err != nil {
+		log.Fatal(err)
+	}
+
+	return removeTokenResponse.Token
 }
 
 func run(registrationToken string, repository string, hostname string) {
@@ -186,7 +211,8 @@ func main() {
 	go func() {
 		<-quit
 		log.Printf("Remove: %s", hostname)
-		remove(registrationToken)
+		removeToken := getRemoveToken(repository, token)
+		remove(removeToken)
 	}()
 
 	log.Printf("Run: %s", hostname)
