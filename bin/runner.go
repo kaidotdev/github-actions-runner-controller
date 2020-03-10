@@ -82,7 +82,10 @@ func install() {
 		}
 	}
 
-	if err := exec.Command("bash", "bin/installdependencies.sh").Run(); err != nil {
+	command := exec.Command("bash", "bin/installdependencies.sh")
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
