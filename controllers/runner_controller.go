@@ -80,29 +80,6 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	dockerConfigMap := r.buildDockerConfigMap(runner)
-
-	var foundDockerConfigMap v1.ConfigMap
-	if err := r.Client.Get(
-		ctx,
-		client.ObjectKey{
-			Name:      req.Name + "-docker",
-			Namespace: req.Namespace,
-		},
-		&foundDockerConfigMap,
-	); errors.IsNotFound(err) {
-		if err := controllerutil.SetControllerReference(runner, dockerConfigMap, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := r.Create(ctx, dockerConfigMap); err != nil {
-			return ctrl.Result{}, err
-		}
-		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created docker config map: %q", dockerConfigMap.Name)
-		logger.V(1).Info("create", "config map", dockerConfigMap)
-	} else if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	deployment := r.buildDeployment(runner)
 
 	var foundDeployment appsV1.Deployment
@@ -144,16 +121,12 @@ func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Contai
 			fmt.Sprintf("--destination=%s/%s", r.PushRegistryHost, r.buildRepositoryName(runner)),
 		},
 		ImagePullPolicy: v1.PullIfNotPresent,
-		VolumeMounts: []v1.VolumeMount{
+		VolumeMounts: append([]v1.VolumeMount{
 			{
 				Name:      "workspace",
 				MountPath: "/workspace",
 			},
-			{
-				Name:      "docker",
-				MountPath: "/kaniko/.docker",
-			},
-		},
+		}, runner.Spec.BuilderContainerSpec.VolumeMounts...),
 		Resources: runner.Spec.BuilderContainerSpec.Resources,
 	}
 }
@@ -192,7 +165,8 @@ func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Contain
 				},
 			},
 		}, runner.Spec.RunnerContainerSpec.Env...),
-		Resources: runner.Spec.RunnerContainerSpec.Resources,
+		Resources:    runner.Spec.RunnerContainerSpec.Resources,
+		VolumeMounts: runner.Spec.RunnerContainerSpec.VolumeMounts,
 	}
 }
 
@@ -296,7 +270,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 						r.buildBuilderContainer(runner),
 					},
 					Containers: containers,
-					Volumes: []v1.Volume{
+					Volumes: append([]v1.Volume{
 						{
 							Name: "workspace",
 							VolumeSource: v1.VolumeSource{
@@ -307,17 +281,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 								},
 							},
 						},
-						{
-							Name: "docker",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: runner.Name + "-docker",
-									},
-								},
-							},
-						},
-					},
+					}, runner.Spec.Template.Spec.Volumes...),
 				},
 			},
 		},
@@ -354,18 +318,6 @@ CMD ["./runner"]
 	}
 }
 
-func (r *RunnerReconciler) buildDockerConfigMap(runner *garV1.Runner) *v1.ConfigMap {
-	return &v1.ConfigMap{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      runner.Name + "-docker",
-			Namespace: runner.Namespace,
-		},
-		Data: map[string]string{
-			"config.json": `{"credsStore":"ecr-login"}`,
-		},
-	}
-}
-
 func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *garV1.Runner) error {
 	var configMaps v1.ConfigMapList
 	if err := r.List(
@@ -380,7 +332,7 @@ func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *ga
 	for _, configMap := range configMaps.Items {
 		configMap := configMap
 
-		if configMap.Name == runner.Name+"-workspace" || configMap.Name == runner.Name+"-docker" {
+		if configMap.Name == runner.Name+"-workspace" {
 			continue
 		}
 
