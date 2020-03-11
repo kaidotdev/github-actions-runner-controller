@@ -26,7 +26,7 @@ Its image is rebuilt as an image for Runner using [GoogleContainerTools/kaniko](
 
 ```shell
 $ cat examples/runner.yaml
-apiVersion: github-actions-runner.kaidotdev.github.io/v1alpha1
+apiVersion: github-actions-runner.kaidotdev.github.io/v1
 kind: Runner
 metadata:
   name: example
@@ -60,7 +60,7 @@ UBUNTU_CODENAME=bionic
 You can pass additional information to runner pod via `builderContainerSpec`, `runnerContainerSpec`, and `template`.
 
 ```yaml
-apiVersion: github-actions-runner.kaidotdev.github.io/v1alpha1
+apiVersion: github-actions-runner.kaidotdev.github.io/v1
 kind: Runner
 metadata:
   name: example

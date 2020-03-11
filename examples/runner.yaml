@@ -1,4 +1,4 @@
-apiVersion: github-actions-runner.kaidotdev.github.io/v1alpha1
+apiVersion: github-actions-runner.kaidotdev.github.io/v1
 kind: Runner
 metadata:
   name: example

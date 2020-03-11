@@ -4,5 +4,5 @@ nameReference:
     fieldSpecs:
       - path: spec/tokenSecretKeyRef/name
         group: github-actions-runner.kaidotdev.github.io
-        version: v1alpha1
+        version: v1
         kind: Runner

@@ -15,7 +15,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	garV1 "github-actions-runner-controller/api/v1alpha1"
+	garV1 "github-actions-runner-controller/api/v1"
 
 	"github.com/go-logr/logr"
 	coreV1 "k8s.io/api/core/v1"

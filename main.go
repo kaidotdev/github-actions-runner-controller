@@ -5,7 +5,7 @@ import (
 	"github-actions-runner-controller/controllers"
 	"os"
 
-	garV1 "github-actions-runner-controller/api/v1alpha1"
+	garV1 "github-actions-runner-controller/api/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
