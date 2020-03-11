@@ -325,8 +325,8 @@ WORKDIR /opt/runner
 ADD https://github.com/kaidotdev/github-actions-runner-controller/releases/download/v%s/runner_%s_linux_amd64 runner 
 RUN chmod +x runner
 RUN ./runner --only-install
-RUN echo 'runner:x:1000:1000::/nonexistent:/usr/sbin/nologin' >> /etc/passwd
-RUN echo 'runner:x:1000:' >> /etc/group
+RUN echo 'runner:x:60000:60000::/nonexistent:/usr/sbin/nologin' >> /etc/passwd
+RUN echo 'runner:x:60000:' >> /etc/group
 RUN chown -R runner:runner /opt/runner
 USER runner
 CMD ["./runner"]
