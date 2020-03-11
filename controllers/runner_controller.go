@@ -29,7 +29,7 @@ const (
 	ownerKey      = ".metadata.controller"
 	kanikoImage   = "gcr.io/kaniko-project/executor:v0.17.1"
 	exporterImage = "docker.pkg.github.com/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.0"
-	runnerVersion = "0.2.3"
+	runnerVersion = "0.2.4"
 )
 
 type RunnerReconciler struct {
