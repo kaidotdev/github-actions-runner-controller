@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -57,66 +58,72 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	workspaceConfigMap := r.buildWorkspaceConfigMap(runner)
-
-	var foundWorkspaceConfigMap v1.ConfigMap
+	var workspaceConfigMap v1.ConfigMap
 	if err := r.Client.Get(
 		ctx,
 		client.ObjectKey{
 			Name:      req.Name + "-workspace",
 			Namespace: req.Namespace,
 		},
-		&foundWorkspaceConfigMap,
+		&workspaceConfigMap,
 	); errors.IsNotFound(err) {
-		if err := controllerutil.SetControllerReference(runner, workspaceConfigMap, r.Scheme); err != nil {
+		workspaceConfigMap = *r.buildWorkspaceConfigMap(runner)
+		if err := controllerutil.SetControllerReference(runner, &workspaceConfigMap, r.Scheme); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Create(ctx, workspaceConfigMap); err != nil {
+		if err := r.Create(ctx, &workspaceConfigMap); err != nil {
 			return ctrl.Result{}, err
 		}
 		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created workspace config map: %q", workspaceConfigMap.Name)
 		logger.V(1).Info("create", "config map", workspaceConfigMap)
 	} else if err != nil {
 		return ctrl.Result{}, err
-	}
+	} else {
+		expectedWorkspaceConfigMap := r.buildWorkspaceConfigMap(runner)
+		if !reflect.DeepEqual(workspaceConfigMap.Data, expectedWorkspaceConfigMap.Data) ||
+			!reflect.DeepEqual(workspaceConfigMap.BinaryData, expectedWorkspaceConfigMap.BinaryData) {
+			workspaceConfigMap.Data = expectedWorkspaceConfigMap.Data
+			workspaceConfigMap.BinaryData = expectedWorkspaceConfigMap.BinaryData
 
-	if workspaceConfigMap != &foundWorkspaceConfigMap {
-		if err := r.Update(ctx, workspaceConfigMap); err != nil {
-			return ctrl.Result{}, err
+			if err := r.Update(ctx, &workspaceConfigMap); err != nil {
+				return ctrl.Result{}, err
+			}
+			r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated config map: %q", workspaceConfigMap.Name)
+			logger.V(1).Info("update", "config map", workspaceConfigMap)
 		}
-		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated workspace config map: %q", workspaceConfigMap.Name)
-		logger.V(1).Info("update", "config map", workspaceConfigMap)
 	}
 
-	deployment := r.buildDeployment(runner)
-
-	var foundDeployment appsV1.Deployment
+	var deployment appsV1.Deployment
 	if err := r.Client.Get(
 		ctx,
 		client.ObjectKey{
 			Name:      req.Name + "-runner",
 			Namespace: req.Namespace,
 		},
-		&foundDeployment,
+		&deployment,
 	); errors.IsNotFound(err) {
-		if err := controllerutil.SetControllerReference(runner, deployment, r.Scheme); err != nil {
+		deployment = *r.buildDeployment(runner)
+		if err := controllerutil.SetControllerReference(runner, &deployment, r.Scheme); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Create(ctx, deployment); err != nil {
+		if err := r.Create(ctx, &deployment); err != nil {
 			return ctrl.Result{}, err
 		}
 		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created deployment: %q", deployment.Name)
 		logger.V(1).Info("create", "deployment", deployment)
 	} else if err != nil {
 		return ctrl.Result{}, err
-	}
+	} else {
+		expectedDeployment := r.buildDeployment(runner)
+		if !reflect.DeepEqual(deployment.Spec.Template, expectedDeployment.Spec.Template) {
+			deployment.Spec.Template = expectedDeployment.Spec.Template
 
-	if deployment != &foundDeployment {
-		if err := r.Update(ctx, deployment); err != nil {
-			return ctrl.Result{}, err
+			if err := r.Update(ctx, &deployment); err != nil {
+				return ctrl.Result{}, err
+			}
+			r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated deployment: %q", deployment.Name)
+			logger.V(1).Info("update", "deployment", deployment)
 		}
-		r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated deployment: %q", deployment.Name)
-		logger.V(1).Info("update", "deployment", deployment)
 	}
 
 	return ctrl.Result{}, nil
@@ -143,7 +150,9 @@ func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Contai
 				MountPath: "/workspace",
 			},
 		}, runner.Spec.BuilderContainerSpec.VolumeMounts...),
-		Resources: runner.Spec.BuilderContainerSpec.Resources,
+		Resources:                runner.Spec.BuilderContainerSpec.Resources,
+		TerminationMessagePath:   coreV1.TerminationMessagePathDefault,
+		TerminationMessagePolicy: coreV1.TerminationMessageReadFile,
 	}
 }
 
@@ -176,13 +185,16 @@ func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Contain
 				Name: "HOSTNAME",
 				ValueFrom: &coreV1.EnvVarSource{
 					FieldRef: &coreV1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
+						APIVersion: "v1",
+						FieldPath:  "metadata.name",
 					},
 				},
 			},
 		}, runner.Spec.RunnerContainerSpec.Env...),
-		Resources:    runner.Spec.RunnerContainerSpec.Resources,
-		VolumeMounts: runner.Spec.RunnerContainerSpec.VolumeMounts,
+		Resources:                runner.Spec.RunnerContainerSpec.Resources,
+		VolumeMounts:             runner.Spec.RunnerContainerSpec.VolumeMounts,
+		TerminationMessagePath:   coreV1.TerminationMessagePathDefault,
+		TerminationMessagePolicy: coreV1.TerminationMessageReadFile,
 	}
 }
 
@@ -214,8 +226,11 @@ func (r *RunnerReconciler) buildExporterContainer(runner *garV1.Runner) v1.Conta
 		Ports: []coreV1.ContainerPort{
 			{
 				ContainerPort: 9090,
+				Protocol:      "TCP",
 			},
 		},
+		TerminationMessagePath:   coreV1.TerminationMessagePathDefault,
+		TerminationMessagePolicy: coreV1.TerminationMessageReadFile,
 	}
 }
 
@@ -294,10 +309,20 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 									LocalObjectReference: v1.LocalObjectReference{
 										Name: runner.Name + "-workspace",
 									},
+									DefaultMode: func(i int32) *int32 {
+										return &i
+									}(420),
 								},
 							},
 						},
 					}, runner.Spec.Template.Spec.Volumes...),
+					RestartPolicy: coreV1.RestartPolicyAlways,
+					TerminationGracePeriodSeconds: func(i int64) *int64 {
+						return &i
+					}(30),
+					DNSPolicy:       coreV1.DNSClusterFirst,
+					SecurityContext: &coreV1.PodSecurityContext{},
+					SchedulerName:   coreV1.DefaultSchedulerName,
 				},
 			},
 		},
