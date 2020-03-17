@@ -27,10 +27,7 @@ import (
 )
 
 const (
-	ownerKey      = ".metadata.controller"
-	kanikoImage   = "gcr.io/kaniko-project/executor:v0.17.1"
-	exporterImage = "docker.pkg.github.com/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.0"
-	runnerVersion = "0.2.4"
+	ownerKey = ".metadata.controller"
 )
 
 type RunnerReconciler struct {
@@ -41,6 +38,9 @@ type RunnerReconciler struct {
 	PushRegistryHost    string
 	PullRegistryHost    string
 	EnableRunnerMetrics bool
+	ExporterImage       string
+	KanikoImage         string
+	RunnerVersion       string
 }
 
 func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -136,7 +136,7 @@ func (r *RunnerReconciler) buildRepositoryName(runner *garV1.Runner) string {
 func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Container {
 	return v1.Container{
 		Name:  "kaniko",
-		Image: kanikoImage,
+		Image: r.KanikoImage,
 		Args: []string{
 			"--dockerfile=Dockerfile",
 			"--context=dir:///workspace",
@@ -201,7 +201,7 @@ func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Contain
 func (r *RunnerReconciler) buildExporterContainer(runner *garV1.Runner) v1.Container {
 	return v1.Container{
 		Name:            "exporter",
-		Image:           exporterImage,
+		Image:           r.ExporterImage,
 		ImagePullPolicy: v1.PullAlways,
 		Args: []string{
 			"server",
@@ -355,7 +355,7 @@ RUN echo 'runner:x:60000:' >> /etc/group
 RUN chown -R runner:runner /opt/runner
 USER runner
 CMD ["./runner"]
-`, runner.Spec.Image, runnerVersion, runnerVersion),
+`, runner.Spec.Image, r.RunnerVersion, r.RunnerVersion),
 		},
 	}
 }

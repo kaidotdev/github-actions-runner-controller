@@ -33,12 +33,18 @@ func main() {
 	var pushRegistryHost string
 	var pullRegistryHost string
 	var enableRunnerMetrics bool
+	var exporterImage string
+	var kanikoImage string
+	var runnerVersion string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager.")
 	flag.StringVar(&pushRegistryHost, "push-registry-host", "docker.pkg.github.com/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as push destination.")
 	flag.StringVar(&pullRegistryHost, "pull-registry-host", "docker.pkg.github.com/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as pull source.")
 	flag.BoolVar(&enableRunnerMetrics, "enable-runner-metrics", false, "Enable to expose runner metrics using by prometheus exporter.")
+	flag.StringVar(&exporterImage, "exporter-image", "docker.pkg.github.com/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.0", "Docker Image of exporter used by exporter container")
+	flag.StringVar(&kanikoImage, "kaniko-image", "gcr.io/kaniko-project/executor:v0.18.0", "Docker Image of kaniko used by builder container")
+	flag.StringVar(&runnerVersion, "runner-version", "0.2.4", "Version of runner binary")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -63,6 +69,9 @@ func main() {
 		PushRegistryHost:    pushRegistryHost,
 		PullRegistryHost:    pullRegistryHost,
 		EnableRunnerMetrics: enableRunnerMetrics,
+		ExporterImage:       exporterImage,
+		KanikoImage:         kanikoImage,
+		RunnerVersion:       runnerVersion,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Runner")
 		os.Exit(1)
