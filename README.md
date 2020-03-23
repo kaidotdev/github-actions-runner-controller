@@ -95,7 +95,7 @@ spec:
         sidecar.istio.io/inject: "false"
 ```
 
-Therefore, when combined with [DirectXMan12/k8s-prometheus-adapter](https://github.com/DirectXMan12/k8s-prometheus-adapter), it is possible to scale according to runner metrics using by HPA.
+Therefore, when combined with [DirectXMan12/k8s-prometheus-adapter](https://github.com/DirectXMan12/k8s-prometheus-adapter), it is possible to scale according to runner metrics using HPA.
 
 ```yaml
     - seriesQuery: 'github_actions_runs{status="queued"}'
