@@ -5,7 +5,6 @@ resources:
   # +kubebuilder:scaffold:crdkustomizeresource
   - cluster_role.yaml
   - cluster_role_binding.yaml
-  - config_map.yaml
   - deployment.yaml
   - pod_disruption_budget.yaml
   - role.yaml
@@ -13,6 +12,11 @@ resources:
   - service.yaml
   - service_account.yaml
   - stateful_set.yaml
+
+configMapGenerator:
+  - name: metadata
+    files:
+      - NODEPORT
 
 configurations:
   - kustomizeconfig.yaml
