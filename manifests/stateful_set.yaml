@@ -21,3 +21,15 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/registry
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
