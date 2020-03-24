@@ -40,7 +40,7 @@ rules:
     resources:
       - services
     resourceNames:
-      - registry
+      - github-actions-runner-controller-registry
     verbs:
       - get
   - apiGroups:

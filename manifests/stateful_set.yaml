@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: registry
+  name: github-actions-runner-controller-registry
 spec:
-  serviceName: registry
+  serviceName: github-actions-runner-controller-registry
   replicas: 1
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: registry
+      app: github-actions-runner-controller-registry
   template:
     metadata:
       labels:
-        app: registry
+        app: github-actions-runner-controller-registry
     spec:
       containers:
         - name: registry
