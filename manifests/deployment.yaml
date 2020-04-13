@@ -63,6 +63,7 @@ spec:
             - --enable-leader-election
             - --push-registry-host=$(SERVICE_NAME)-0.$(SERVICE_NAME).$(NAMESPACE).svc.cluster.local:5000
             - --pull-registry-host=127.0.0.1:$(NODEPORT)
+            - --runner-version=2.168.0
             - --enable-runner-metrics
           env:
             - name: SERVICE_NAME

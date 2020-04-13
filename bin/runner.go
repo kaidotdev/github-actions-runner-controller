@@ -20,10 +20,6 @@ import (
 	expect "github.com/google/goexpect"
 )
 
-const (
-	runnerVersion = "2.165.2"
-)
-
 type TokenResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expires_at"`
@@ -35,7 +31,7 @@ func check() {
 	}
 }
 
-func install() {
+func install(runnerVersion string) {
 	request, err := http.NewRequest("GET", fmt.Sprintf("https://github.com/actions/runner/releases/download/v%s/actions-runner-linux-x64-%s.tar.gz", runnerVersion, runnerVersion), nil)
 	if err != nil {
 		log.Fatal(err)
@@ -184,11 +180,13 @@ func remove(registrationToken string) {
 }
 
 func main() {
+	var runnerVersion string
 	var repository string
 	var token string
 	var hostname string
 	var onlyInstall bool
 	var withoutInstall bool
+	flag.StringVar(&runnerVersion, "runner-version", "2.168.0", "Version of GitHub Actions runner")
 	flag.StringVar(&repository, "repository", "kaidotdev/github-actions-runner-controller", "GitHub Repository Name")
 	flag.StringVar(&token, "token", "********", "GitHub Token")
 	flag.StringVar(&hostname, "hostname", "runner", "Hostname used as Runner name")
@@ -198,7 +196,7 @@ func main() {
 
 	check()
 	if !withoutInstall {
-		install()
+		install(runnerVersion)
 		if onlyInstall {
 			os.Exit(0)
 		}
