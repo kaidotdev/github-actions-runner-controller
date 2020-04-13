@@ -56,7 +56,7 @@ spec:
               value: $(CONFIGMAP_NAME)
       containers:
         - name: controller
-          image: docker.pkg.github.com/kaidotdev/github-actions-runner-controller/github-actions-runner-controller:v0.2.4
+          image: docker.pkg.github.com/kaidotdev/github-actions-runner-controller/github-actions-runner-controller:v0.2.6
           imagePullPolicy: Always
           args:
             - --metrics-addr=0.0.0.0:8080
