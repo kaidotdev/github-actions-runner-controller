@@ -166,7 +166,7 @@ func run(registrationToken string, repository string, hostname string) {
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 	if err := command.Run(); err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 }
 
@@ -175,7 +175,7 @@ func remove(registrationToken string) {
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 	if err := command.Run(); err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 }
 
@@ -202,17 +202,15 @@ func main() {
 		}
 	}
 
-	registrationToken := getRegistrationToken(repository, token)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM)
 
-	go func() {
-		<-quit
-		log.Printf("Remove: %s", hostname)
-		removeToken := getRemoveToken(repository, token)
-		remove(removeToken)
-	}()
-
 	log.Printf("Run: %s", hostname)
-	run(registrationToken, repository, hostname)
+	registrationToken := getRegistrationToken(repository, token)
+	go run(registrationToken, repository, hostname)
+
+	<-quit
+	log.Printf("Remove: %s", hostname)
+	removeToken := getRemoveToken(repository, token)
+	remove(removeToken)
 }
