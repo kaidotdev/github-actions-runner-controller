@@ -3,15 +3,15 @@ kind: Deployment
 metadata:
   name: github-actions-runner-controller
 spec:
-  selector:
-    matchLabels:
-      app: github-actions-runner-controller
   replicas: 4
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 25%
       maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: github-actions-runner-controller
   template:
     metadata:
       labels:
