@@ -148,14 +148,7 @@ func run(registrationToken string, repository string, hostname string) {
 	if err := e.Send(hostname + "\n"); err != nil {
 		log.Fatal(err)
 	}
-	_, _, err = e.Expect(regexp.MustCompile("Enter the name of runner:"), -1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := e.Send(hostname + "\n"); err != nil {
-		log.Fatal(err)
-	}
-	_, _, err = e.Expect(regexp.MustCompile("Enter any additional labels (ex. label-1,label-2):"), -1)
+	_, _, err = e.Expect(regexp.MustCompile(`Enter any additional labels`), -1)
 	if err != nil {
 		log.Fatal(err)
 	}
