@@ -340,11 +340,11 @@ func (r *RunnerReconciler) buildWorkspaceConfigMap(runner *garV1.Runner) *v1.Con
 			"Dockerfile": fmt.Sprintf(`
 FROM %s
 USER root
-RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping) || \
-      (command -v apt-get && apt-get update && apt-get install -y ca-certificates iputils-ping) || \
-      (command -v dnf && dnf install -y ca-certificates iputils) || \
-      (command -v yum && yum install -y ca-certificates iputils) || \
-      (command -v zypper && zypper install -n ca-certificates iputils) || \
+RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping tar) || \
+      (command -v apt-get && apt-get update && apt-get install -y ca-certificates iputils-ping tar) || \
+      (command -v dnf && dnf install -y ca-certificates iputils tar) || \
+      (command -v yum && yum install -y ca-certificates iputils tar) || \
+      (command -v zypper && zypper install -n ca-certificates iputils tar) || \
       (echo "Unknown OS version" && exit 1)
 RUN mkdir -p /opt/runner
 WORKDIR /opt/runner
