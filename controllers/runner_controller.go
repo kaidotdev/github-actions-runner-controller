@@ -171,6 +171,7 @@ func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Contain
 			"--token=$(TOKEN)",
 			"--hostname=$(HOSTNAME)",
 		},
+		EnvFrom: runner.Spec.RunnerContainerSpec.EnvFrom,
 		Env: append([]coreV1.EnvVar{
 			{
 				Name:  "REPOSITORY",

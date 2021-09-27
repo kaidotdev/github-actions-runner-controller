@@ -208,6 +208,45 @@ spec:
                     - name
                     type: object
                   type: array
+                envFrom:
+                  description: List of sources to populate environment variables in
+                    the container. The keys defined within a source must be a C_IDENTIFIER.
+                    All invalid keys will be reported as an event when the container
+                    is starting. When a key exists in multiple sources, the value
+                    associated with the last source will take precedence. Values defined
+                    by an Env with a duplicate key will take precedence. Cannot be
+                    updated.
+                  items:
+                    description: EnvFromSource represents the source of a set of ConfigMaps
+                    properties:
+                      configMapRef:
+                        description: The ConfigMap to select from
+                        properties:
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap must be defined
+                            type: boolean
+                        type: object
+                      prefix:
+                        description: An optional identifier to prepend to each key
+                          in the ConfigMap. Must be a C_IDENTIFIER.
+                        type: string
+                      secretRef:
+                        description: The Secret to select from
+                        properties:
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret must be defined
+                            type: boolean
+                        type: object
+                    type: object
+                  type: array
                 resources:
                   description: 'Compute Resources required by this container. More
                     info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
