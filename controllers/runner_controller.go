@@ -341,11 +341,11 @@ func (r *RunnerReconciler) buildWorkspaceConfigMap(runner *garV1.Runner) *v1.Con
 			"Dockerfile": fmt.Sprintf(`
 FROM %s
 USER root
-RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping tar) || \
-      (command -v apt-get && apt-get update && apt-get install -y ca-certificates iputils-ping tar) || \
-      (command -v dnf && dnf install -y ca-certificates iputils tar) || \
-      (command -v yum && yum install -y ca-certificates iputils tar) || \
-      (command -v zypper && zypper install -n ca-certificates iputils tar) || \
+RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping tar sudo git) || \
+      (command -v apt-get && apt-get update && apt-get install -y ca-certificates iputils-ping tar sudo git) || \
+      (command -v dnf && dnf install -y ca-certificates iputils tar sudo git) || \
+      (command -v yum && yum install -y ca-certificates iputils tar sudo git) || \
+      (command -v zypper && zypper install -n ca-certificates iputils tar sudo git-core) || \
       (echo "Unknown OS version" && exit 1)
 RUN mkdir -p /opt/runner
 WORKDIR /opt/runner
@@ -355,6 +355,7 @@ RUN ./runner --only-install --runner-version %s
 RUN echo 'runner:x:60000:60000::/nonexistent:/usr/sbin/nologin' >> /etc/passwd
 RUN echo 'runner:x:60000:' >> /etc/group
 RUN chown -R runner:runner /opt/runner
+RUN echo "runner ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo
 USER runner
 CMD ["./runner"]
 `, runner.Spec.Image, r.BinaryVersion, r.BinaryVersion, r.RunnerVersion),
