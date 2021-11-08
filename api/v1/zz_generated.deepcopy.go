@@ -100,7 +100,7 @@ func (in *RunnerContainerSpec) DeepCopy() *RunnerContainerSpec {
 func (in *RunnerList) DeepCopyInto(out *RunnerList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Runner, len(*in))
