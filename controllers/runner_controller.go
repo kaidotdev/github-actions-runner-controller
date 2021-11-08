@@ -347,14 +347,14 @@ RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping
       (command -v yum && yum install -y ca-certificates iputils tar sudo git) || \
       (command -v zypper && zypper install -n ca-certificates iputils tar sudo git-core) || \
       (echo "Unknown OS version" && exit 1)
-RUN mkdir -p /opt/runner
+RUN mkdir -p /opt/runner && mkdir -p /home/runner
 WORKDIR /opt/runner
 ADD https://github.com/kaidotdev/github-actions-runner-controller/releases/download/v%s/runner_%s_linux_amd64 runner 
 RUN chmod +x runner
 RUN ./runner --only-install --runner-version %s
-RUN echo 'runner::60000:60000::/nonexistent:/usr/sbin/nologin' >> /etc/passwd
+RUN echo 'runner::60000:60000::/home/runner:/bin/sh' >> /etc/passwd
 RUN echo 'runner::60000:' >> /etc/group
-RUN chown -R runner:runner /opt/runner
+RUN chown -R runner:runner /opt/runner && chown -R runner:runner /home/runner
 RUN echo "runner ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo
 USER runner
 CMD ["./runner"]
