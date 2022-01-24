@@ -145,6 +145,8 @@ func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Contai
 			fmt.Sprintf("--destination=%s/%s", r.PushRegistryHost, r.buildRepositoryName(runner)),
 		},
 		ImagePullPolicy: v1.PullIfNotPresent,
+		EnvFrom: runner.Spec.BuilderContainerSpec.EnvFrom,
+		Env: runner.Spec.BuilderContainerSpec.Env,
 		VolumeMounts: append([]v1.VolumeMount{
 			{
 				Name:      "workspace",
