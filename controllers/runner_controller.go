@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	dockerref "github.com/docker/distribution/reference"
 	appsV1 "k8s.io/api/apps/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -131,7 +132,12 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (r *RunnerReconciler) buildRepositoryName(runner *garV1.Runner) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(runner.Spec.Image+r.BinaryVersion+r.RunnerVersion)))[:7]
+	named, err := dockerref.ParseNormalizedNamed(runner.Spec.Image)
+	if err != nil {
+		return fmt.Sprintf("%x", sha256.Sum256([]byte(runner.Spec.Image+r.BinaryVersion+r.RunnerVersion)))[:7]
+	}
+	trimmed := dockerref.TrimNamed(named).String()
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(trimmed+r.BinaryVersion+r.RunnerVersion)))[:7]
 }
 
 func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Container {
