@@ -260,6 +260,13 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 		labels[k] = v
 	}
 	runner.Spec.Template.ObjectMeta.Labels = labels
+	annotations := map[string]string{
+		"image": runner.Spec.Image,
+	}
+	for k, v := range runner.Spec.Template.ObjectMeta.Annotations {
+		annotations[k] = v
+	}
+	runner.Spec.Template.ObjectMeta.Annotations = annotations
 	return &appsV1.Deployment{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      runner.Name + "-runner",
