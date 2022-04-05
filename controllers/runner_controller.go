@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"reflect"
+	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -29,6 +31,7 @@ import (
 
 const (
 	ownerKey = ".metadata.controller"
+	optimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
 type RunnerReconciler struct {
@@ -121,6 +124,9 @@ func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			deployment.Spec.Template = expectedDeployment.Spec.Template
 
 			if err := r.Update(ctx, &deployment); err != nil {
+				if strings.Contains(err.Error(), optimisticLockErrorMsg) {
+					return ctrl.Result{RequeueAfter: time.Second}, nil
+				}
 				return ctrl.Result{}, err
 			}
 			r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated deployment: %q", deployment.Name)
