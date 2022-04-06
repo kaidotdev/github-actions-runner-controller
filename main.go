@@ -40,12 +40,12 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager.")
-	flag.StringVar(&pushRegistryHost, "push-registry-host", "docker.pkg.github.com/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as push destination.")
-	flag.StringVar(&pullRegistryHost, "pull-registry-host", "docker.pkg.github.com/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as pull source.")
+	flag.StringVar(&pushRegistryHost, "push-registry-host", "ghcr.io/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as push destination.")
+	flag.StringVar(&pullRegistryHost, "pull-registry-host", "ghcr.io/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as pull source.")
 	flag.BoolVar(&enableRunnerMetrics, "enable-runner-metrics", false, "Enable to expose runner metrics using prometheus exporter.")
-	flag.StringVar(&exporterImage, "exporter-image", "docker.pkg.github.com/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.0", "Docker Image of exporter used by exporter container")
+	flag.StringVar(&exporterImage, "exporter-image", "ghcr.io/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.1", "Docker Image of exporter used by exporter container")
 	flag.StringVar(&kanikoImage, "kaniko-image", "gcr.io/kaniko-project/executor:v0.18.0", "Docker Image of kaniko used by builder container")
-	flag.StringVar(&binaryVersion, "binary-version", "0.3.5", "Version of own runner binary")
+	flag.StringVar(&binaryVersion, "binary-version", "0.3.9", "Version of own runner binary")
 	flag.StringVar(&runnerVersion, "runner-version", "2.283.1", "Version of GitHub Actions runner")
 	flag.Parse()
 
