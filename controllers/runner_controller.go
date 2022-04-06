@@ -362,8 +362,9 @@ func (r *RunnerReconciler) buildWorkspaceConfigMap(runner *garV1.Runner) *v1.Con
 			"Dockerfile": fmt.Sprintf(`
 FROM %s
 USER root
-RUN (command -v apt && apt update && DEBIAN_FRONTEND=noninteractive apt install -y ca-certificates iputils-ping tar sudo git) || \
-      (command -v apt-get && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates iputils-ping tar sudo git) || \
+ENV DEBIAN_FRONTEND=noninteractive
+RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping tar sudo git) || \
+      (command -v apt-get && apt-get update && apt-get install -y ca-certificates iputils-ping tar sudo git) || \
       (command -v dnf && dnf install -y ca-certificates iputils tar sudo git) || \
       (command -v yum && yum install -y ca-certificates iputils tar sudo git) || \
       (command -v zypper && zypper install -n ca-certificates iputils tar sudo git-core) || \
