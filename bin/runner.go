@@ -141,6 +141,10 @@ func run(registrationToken string, repository string, hostname string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	_, _, err = e.Expect(regexp.MustCompile("Enter the name of the runner group to add this runner to:"), -1)
+	if err != nil {
+		log.Fatal(err)
+	}
 	_, _, err = e.Expect(regexp.MustCompile("Enter the name of runner:"), -1)
 	if err != nil {
 		log.Fatal(err)
@@ -193,7 +197,7 @@ func main() {
 	var hostname string
 	var onlyInstall bool
 	var withoutInstall bool
-	flag.StringVar(&runnerVersion, "runner-version", "2.267.1", "Version of GitHub Actions runner")
+	flag.StringVar(&runnerVersion, "runner-version", "2.291.1", "Version of GitHub Actions runner")
 	flag.StringVar(&repository, "repository", "kaidotdev/github-actions-runner-controller", "GitHub Repository Name")
 	flag.StringVar(&token, "token", "********", "GitHub Token")
 	flag.StringVar(&hostname, "hostname", "runner", "Hostname used as Runner name")
