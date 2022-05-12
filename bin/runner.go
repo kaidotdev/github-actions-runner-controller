@@ -137,12 +137,15 @@ func getRemoveToken(repository string, token string) string {
 }
 
 func run(registrationToken string, repository string, hostname string) {
-	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s", registrationToken, repository), -1, expect.Verbose(true))
+	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s", registrationToken, repository), -1)
 	if err != nil {
 		log.Fatal(err)
 	}
 	_, _, err = e.Expect(regexp.MustCompile("Enter the name of the runner group to add this runner to:"), -1)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err := e.Send("\n"); err != nil {
 		log.Fatal(err)
 	}
 	_, _, err = e.Expect(regexp.MustCompile("Enter the name of runner:"), -1)
