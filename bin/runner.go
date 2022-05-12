@@ -137,7 +137,7 @@ func getRemoveToken(repository string, token string) string {
 }
 
 func run(registrationToken string, repository string, hostname string) {
-	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s", registrationToken, repository), -1)
+	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s", registrationToken, repository), -1, expect.Verbose(true))
 	if err != nil {
 		log.Fatal(err)
 	}
