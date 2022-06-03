@@ -223,7 +223,6 @@ func (r *RunnerReconciler) buildExporterContainer(runner *garV1.Runner) v1.Conta
 			"server",
 			"--api-address=0.0.0.0:8000",
 			"--monitor-address=0.0.0.0:9090",
-			"--enable-tracing",
 			"--repository=$(REPOSITORY)",
 			"--token=$(TOKEN)",
 		},
