@@ -45,7 +45,7 @@ func main() {
 	flag.BoolVar(&enableRunnerMetrics, "enable-runner-metrics", false, "Enable to expose runner metrics using prometheus exporter.")
 	flag.StringVar(&exporterImage, "exporter-image", "ghcr.io/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.1", "Docker Image of exporter used by exporter container")
 	flag.StringVar(&kanikoImage, "kaniko-image", "gcr.io/kaniko-project/executor:v0.18.0", "Docker Image of kaniko used by builder container")
-	flag.StringVar(&binaryVersion, "binary-version", "0.3.12", "Version of own runner binary")
+	flag.StringVar(&binaryVersion, "binary-version", "0.3.13", "Version of own runner binary")
 	flag.StringVar(&runnerVersion, "runner-version", "2.291.1", "Version of GitHub Actions runner")
 	flag.Parse()
 
