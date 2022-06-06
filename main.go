@@ -37,6 +37,7 @@ func main() {
 	var kanikoImage string
 	var binaryVersion string
 	var runnerVersion string
+	var disableupdate bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager.")
@@ -47,6 +48,7 @@ func main() {
 	flag.StringVar(&kanikoImage, "kaniko-image", "gcr.io/kaniko-project/executor:v0.18.0", "Docker Image of kaniko used by builder container")
 	flag.StringVar(&binaryVersion, "binary-version", "0.3.13", "Version of own runner binary")
 	flag.StringVar(&runnerVersion, "runner-version", "2.291.1", "Version of GitHub Actions runner")
+	flag.BoolVar(&disableupdate, "disableupdate", false, "Disable self-hosted runner automatic update to the latest released version")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -75,6 +77,7 @@ func main() {
 		KanikoImage:         kanikoImage,
 		BinaryVersion:       binaryVersion,
 		RunnerVersion:       runnerVersion,
+		Disableupdate:       disableupdate,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Runner")
 		os.Exit(1)

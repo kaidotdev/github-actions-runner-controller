@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path"
 	"regexp"
+	"strings"
 	"syscall"
 
 	expect "github.com/google/goexpect"
@@ -136,8 +137,12 @@ func getRemoveToken(repository string, token string) string {
 	return removeTokenResponse.Token
 }
 
-func run(registrationToken string, repository string, hostname string) {
-	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s", registrationToken, repository), -1)
+func run(registrationToken string, repository string, hostname string, disableupdate bool) {
+	var args []string
+	if disableupdate {
+		args = append(args, "--disableupdate")
+	}
+	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s %s", registrationToken, repository, strings.Join(args, " ")), -1)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -200,12 +205,14 @@ func main() {
 	var hostname string
 	var onlyInstall bool
 	var withoutInstall bool
+	var disableupdate bool
 	flag.StringVar(&runnerVersion, "runner-version", "2.291.1", "Version of GitHub Actions runner")
 	flag.StringVar(&repository, "repository", "kaidotdev/github-actions-runner-controller", "GitHub Repository Name")
 	flag.StringVar(&token, "token", "********", "GitHub Token")
 	flag.StringVar(&hostname, "hostname", "runner", "Hostname used as Runner name")
 	flag.BoolVar(&onlyInstall, "only-install", false, "Execute install only")
 	flag.BoolVar(&withoutInstall, "without-install", false, "Execute without install")
+	flag.BoolVar(&disableupdate, "disableupdate", false, "Disable self-hosted runner automatic update to the latest released version")
 	flag.Parse()
 
 	check()
@@ -221,7 +228,7 @@ func main() {
 
 	log.Printf("Run: %s", hostname)
 	registrationToken := getRegistrationToken(repository, token)
-	go run(registrationToken, repository, hostname)
+	go run(registrationToken, repository, hostname, disableupdate)
 
 	<-quit
 	log.Printf("Remove: %s", hostname)

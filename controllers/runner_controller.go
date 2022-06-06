@@ -46,6 +46,7 @@ type RunnerReconciler struct {
 	KanikoImage         string
 	BinaryVersion       string
 	RunnerVersion       string
+	Disableupdate       bool
 }
 
 func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -172,7 +173,7 @@ func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Contai
 }
 
 func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Container {
-	return v1.Container{
+	c := v1.Container{
 		Name:            "runner",
 		Image:           fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
 		ImagePullPolicy: v1.PullAlways,
@@ -212,6 +213,10 @@ func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Contain
 		TerminationMessagePath:   coreV1.TerminationMessagePathDefault,
 		TerminationMessagePolicy: coreV1.TerminationMessageReadFile,
 	}
+	if r.Disableupdate {
+		c.Args = append(c.Args, "--disableupdate")
+	}
+	return c
 }
 
 func (r *RunnerReconciler) buildExporterContainer(runner *garV1.Runner) v1.Container {
