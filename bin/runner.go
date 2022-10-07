@@ -160,13 +160,6 @@ func run(registrationToken string, repository string, hostname string, disableup
 	if err := e.Send(hostname + "\n"); err != nil {
 		log.Fatal(err)
 	}
-	_, _, err = e.Expect(regexp.MustCompile(`Enter any additional labels`), -1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := e.Send("\n"); err != nil {
-		log.Fatal(err)
-	}
 	_, _, err = e.Expect(regexp.MustCompile("Enter name of work folder:"), -1)
 	if err != nil {
 		log.Fatal(err)
