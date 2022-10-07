@@ -142,7 +142,7 @@ func run(registrationToken string, repository string, hostname string, disableup
 	if disableupdate {
 		args = append(args, "--disableupdate")
 	}
-	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --token %s --url https://github.com/%s %s", registrationToken, repository, strings.Join(args, " ")), -1)
+	e, _, err := expect.Spawn(fmt.Sprintf("bash config.sh --labels kaidotdev/github-actions-runner-controller --token %s --url https://github.com/%s %s", registrationToken, repository, strings.Join(args, " ")), -1)
 	if err != nil {
 		log.Fatal(err)
 	}
