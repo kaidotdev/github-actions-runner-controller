@@ -155,6 +155,7 @@ func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Contai
 			"--dockerfile=Dockerfile",
 			"--context=dir:///workspace",
 			"--cache=true",
+			"--cleanup=true",
 			fmt.Sprintf("--destination=%s/%s", r.PushRegistryHost, r.buildRepositoryName(runner)),
 		},
 		ImagePullPolicy: v1.PullIfNotPresent,
