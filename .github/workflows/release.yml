@@ -6,7 +6,7 @@ on:
 jobs:
   publish:
     name: Publish
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     env:
       OWNER: kaidotdev
       REPOSITORY_NAME: github-actions-runner-controller
