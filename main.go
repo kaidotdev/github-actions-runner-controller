@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"flag"
 	garV1 "github-actions-runner-controller/api/v1"
-	"github-actions-runner-controller/controllers"
+	"github-actions-runner-controller/internal/controllers"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
