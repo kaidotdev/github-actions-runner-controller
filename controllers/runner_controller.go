@@ -49,9 +49,8 @@ type RunnerReconciler struct {
 	Disableupdate       bool
 }
 
-func (r *RunnerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	runner := &garV1.Runner{}
-	ctx := context.Background()
 	logger := r.Log.WithValues("runner", req.NamespacedName)
 	if err := r.Get(ctx, req.NamespacedName, runner); err != nil {
 		if errors.IsNotFound(err) {
@@ -441,7 +440,8 @@ func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *ga
 }
 
 func (r *RunnerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(&v1.ConfigMap{}, ownerKey, func(rawObj runtime.Object) []string {
+	ctx := context.Background()
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1.ConfigMap{}, ownerKey, func(rawObj client.Object) []string {
 		configMap := rawObj.(*v1.ConfigMap)
 		owner := metaV1.GetControllerOf(configMap)
 		if owner == nil {
@@ -456,7 +456,7 @@ func (r *RunnerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(&appsV1.Deployment{}, ownerKey, func(rawObj runtime.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &appsV1.Deployment{}, ownerKey, func(rawObj client.Object) []string {
 		deployment := rawObj.(*appsV1.Deployment)
 		owner := metaV1.GetControllerOf(deployment)
 		if owner == nil {
@@ -475,5 +475,7 @@ func (r *RunnerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&garV1.Runner{}).
 		Owns(&v1.ConfigMap{}).
 		Owns(&appsV1.Deployment{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		Complete(r)
 }
