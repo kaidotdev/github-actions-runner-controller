@@ -106,7 +106,3 @@ type RunnerList struct {
 	metaV1.ListMeta `json:"metadata,omitempty"`
 	Items           []Runner `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Runner{}, &RunnerList{})
-}
