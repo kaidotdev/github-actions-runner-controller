@@ -2,9 +2,9 @@
 
 .PHONY: gen
 gen: ## Generate from controller-gen
-	@go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.9
-	@go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.9
-	@$(shell go env GOPATH)/bin/controller-gen paths="./..." object crd:crdVersions=v1,trivialVersions=true output:crd:artifacts:config=manifests/crd
+	@go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+	@$(shell go env GOPATH)/bin/controller-gen paths="./..." object crd:crdVersions=v1 output:crd:artifacts:config=manifests/crd
+
 .PHONY: test
 test: ## Test
 	@go test ./... -race -bench . -benchmem -trimpath -cover
