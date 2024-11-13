@@ -1,26 +1,24 @@
-# syntax=docker/dockerfile:experimental
+# syntax=docker/dockerfile:1.4
 
-FROM golang:1.13-alpine as builder
+FROM golang:1.22-bullseye AS builder
 
-ENV CGO_ENABLED 0
-ENV GOOS linux
-ENV GOARCH amd64
+ENV CGO_ENABLED=0
 
-RUN apk update && apk upgrade
+WORKDIR /opt/builder
 
-WORKDIR /build/
+COPY go.mod go.sum /opt/builder/
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-COPY go.mod go.sum /build/
-RUN --mount=type=cache,target=/root/go/pkg/mod go mod download
+COPY main.go /opt/builder/main.go
+COPY api /opt/builder/api
+COPY internal /opt/builder/internal
 
-COPY main.go /build/main.go
-COPY api /build/api
-COPY controllers /build/controllers
-
-RUN --mount=type=cache,target=/root/.cache/go-build go build -trimpath -o /usr/local/bin/main -ldflags="-s -w" /build/main.go
+ARG LD_FLAGS="-s -w"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go build -trimpath -o /usr/local/bin/main -ldflags="${LD_FLAGS}" /opt/builder/main.go
 
 FROM gcr.io/distroless/static:nonroot
-COPY --from=builder /usr/local/bin/main /usr/local/bin/main
-USER nonroot:nonroot
+COPY --link --from=builder /usr/local/bin/main /usr/local/bin/github-actions-runner-controller
 
-ENTRYPOINT ["/usr/local/bin/main"]
+USER 65532
+
+ENTRYPOINT ["/usr/local/bin/github-actions-runner-controller"]

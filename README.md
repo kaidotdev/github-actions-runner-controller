@@ -135,6 +135,31 @@ spec:
 
 See CRD for other available fields and detailed descriptions: [github-actions-runner.kaidotdev.github.io_runners.yaml](https://github.com/kaidotdev/github-actions-runner-controller/blob/master/manifests/crd/github-actions-runner.kaidotdev.github.io_runners.yaml)
 
+### GitHub Apps
+
+You can use GitHub Apps to authenticate the runner.
+
+```sh
+kubectl create secret generic credentials --from-literal=github_app_id="<YOUR GITHUB APP ID>" --from-literal=github_app_installation_id="<YOUR GITHUB APP INSTALLATION ID>" --from-file=github_app_private_key="<PATH TO YOUR GITHUB APP PRIVATE KEY>"
+cat <<EOF | kubectl apply -f -
+apiVersion: github-actions-runner.kaidotdev.github.io/v1
+kind: Runner
+metadata:
+  name: github-apps-example
+spec:
+  image: ubuntu:18.04
+  repository: kaidotio/hippocampus
+  appSecretRef:
+    name: credentials
+EOF
+```
+
+#### Required Permissions
+
+- Actions (read)
+- Administration (read / write)
+- Metadata (read)
+
 ## How to develop
 
 ### `skaffold dev`

@@ -10,9 +10,11 @@ type RunnerSpec struct {
 	// Image using by self-hosted runner
 	Image string `json:"image"`
 	// GitHub Repository Name to use runner
+	// +kubebuilder:validation:XValidation:rule="self.find('[^/]+/[^/]+') != ''",message="must be /[^\\/]+\\/[^\\/]+/"
 	Repository string `json:"repository"`
 	// Selects a key of a GitHub Token secret in the runner's namespace
-	TokenSecretKeyRef    *v1.SecretKeySelector `json:"tokenSecretKeyRef"`
+	TokenSecretKeyRef    *v1.SecretKeySelector `json:"tokenSecretKeyRef,omitempty"`
+	AppSecretRef         *v1.SecretEnvSource   `json:"appSecretRef,omitempty"`
 	Template             Template              `json:"template,omitempty"`
 	BuilderContainerSpec BuilderContainerSpec  `json:"builderContainerSpec,omitempty"`
 	RunnerContainerSpec  RunnerContainerSpec   `json:"runnerContainerSpec,omitempty"`
@@ -105,8 +107,4 @@ type RunnerList struct {
 	metaV1.TypeMeta `json:",inline"`
 	metaV1.ListMeta `json:"metadata,omitempty"`
 	Items           []Runner `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Runner{}, &RunnerList{})
 }
