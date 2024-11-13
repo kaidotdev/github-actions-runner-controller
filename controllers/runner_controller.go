@@ -8,29 +8,27 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	dockerref "github.com/docker/distribution/reference"
-	appsV1 "k8s.io/api/apps/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	v1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	garV1 "github-actions-runner-controller/api/v1"
 
+	dockerref "github.com/docker/distribution/reference"
 	"github.com/go-logr/logr"
+	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
-	ownerKey = ".metadata.controller"
+	ownerKey               = ".metadata.controller"
 	optimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
@@ -148,22 +146,24 @@ func (r *RunnerReconciler) buildRepositoryName(runner *garV1.Runner) string {
 
 func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Container {
 	return v1.Container{
-		Name:  "kaniko",
-		Image: r.KanikoImage,
+		Name:            "kaniko",
+		Image:           r.KanikoImage,
+		ImagePullPolicy: v1.PullIfNotPresent,
 		Args: []string{
 			"--dockerfile=Dockerfile",
 			"--context=dir:///workspace",
 			"--cache=true",
-			"--cleanup=true",
+			"--compressed-caching=false",
 			fmt.Sprintf("--destination=%s/%s", r.PushRegistryHost, r.buildRepositoryName(runner)),
 		},
-		ImagePullPolicy: v1.PullIfNotPresent,
 		EnvFrom: runner.Spec.BuilderContainerSpec.EnvFrom,
-		Env: runner.Spec.BuilderContainerSpec.Env,
+		Env:     runner.Spec.BuilderContainerSpec.Env,
 		VolumeMounts: append([]v1.VolumeMount{
 			{
 				Name:      "workspace",
-				MountPath: "/workspace",
+				MountPath: "/workspace/Dockerfile",
+				SubPath:   "Dockerfile",
+				ReadOnly:  true,
 			},
 		}, runner.Spec.BuilderContainerSpec.VolumeMounts...),
 		Resources:                runner.Spec.BuilderContainerSpec.Resources,
@@ -173,41 +173,73 @@ func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Contai
 }
 
 func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Container {
+	args := []string{
+		"--without-install",
+		"--repository=$(REPOSITORY)",
+		"--hostname=$(HOSTNAME)",
+	}
+	env := runner.Spec.RunnerContainerSpec.Env
+	envFrom := runner.Spec.RunnerContainerSpec.EnvFrom
+
+	env = append(env, []coreV1.EnvVar{
+		{
+			Name:  "REPOSITORY",
+			Value: runner.Spec.Repository,
+		},
+		{
+			Name: "HOSTNAME",
+			ValueFrom: &coreV1.EnvVarSource{
+				FieldRef: &coreV1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
+			},
+		},
+	}...)
+
+	if runner.Spec.TokenSecretKeyRef != nil {
+		args = append(args, "--token=$(TOKEN)")
+		env = append(env, coreV1.EnvVar{
+			Name: "TOKEN",
+			ValueFrom: &coreV1.EnvVarSource{
+				SecretKeyRef: runner.Spec.TokenSecretKeyRef,
+			},
+		})
+	}
+
+	if runner.Spec.AppSecretRef != nil {
+		args = append(args, []string{
+			"--github-app-id=$(github_app_id)",
+			"--github-app-installation-id=$(github_app_installation_id)",
+			"--github-app-private-key=$(github_app_private_key)",
+		}...)
+		envFrom = append(envFrom, coreV1.EnvFromSource{
+			SecretRef: runner.Spec.AppSecretRef,
+		})
+	}
+
 	c := v1.Container{
-		Name:            "runner",
-		Image:           fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
-		ImagePullPolicy: v1.PullAlways,
-		Command: []string{
-			"./runner",
-		},
-		Args: []string{
-			"--without-install",
-			"--repository=$(REPOSITORY)",
-			"--token=$(TOKEN)",
-			"--hostname=$(HOSTNAME)",
-		},
-		EnvFrom: runner.Spec.RunnerContainerSpec.EnvFrom,
-		Env: append([]coreV1.EnvVar{
-			{
-				Name:  "REPOSITORY",
-				Value: runner.Spec.Repository,
-			},
-			{
-				Name: "TOKEN",
-				ValueFrom: &coreV1.EnvVarSource{
-					SecretKeyRef: runner.Spec.TokenSecretKeyRef,
+		Name: "runner",
+		SecurityContext: &v1.SecurityContext{
+			Privileged:               func(b bool) *bool { return &b }(false),
+			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
+			Capabilities: &v1.Capabilities{
+				Drop: []v1.Capability{
+					"ALL",
 				},
 			},
-			{
-				Name: "HOSTNAME",
-				ValueFrom: &coreV1.EnvVarSource{
-					FieldRef: &coreV1.ObjectFieldSelector{
-						APIVersion: "v1",
-						FieldPath:  "metadata.name",
-					},
-				},
+			ReadOnlyRootFilesystem: func(b bool) *bool { return &b }(false),
+			RunAsUser:              func(i int64) *int64 { return &i }(60000),
+			RunAsNonRoot:           func(b bool) *bool { return &b }(true),
+			SeccompProfile: &coreV1.SeccompProfile{
+				Type: coreV1.SeccompProfileTypeRuntimeDefault,
 			},
-		}, runner.Spec.RunnerContainerSpec.Env...),
+		},
+		Image:                    fmt.Sprintf("%s/%s", r.PullRegistryHost, r.buildRepositoryName(runner)),
+		ImagePullPolicy:          v1.PullAlways,
+		Args:                     args,
+		EnvFrom:                  envFrom,
+		Env:                      env,
 		Resources:                runner.Spec.RunnerContainerSpec.Resources,
 		VolumeMounts:             runner.Spec.RunnerContainerSpec.VolumeMounts,
 		TerminationMessagePath:   coreV1.TerminationMessagePathDefault,
@@ -258,6 +290,7 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 	containers := []v1.Container{
 		r.buildRunnerContainer(runner),
 	}
+
 	if r.EnableRunnerMetrics {
 		containers = append(containers, r.buildExporterContainer(runner))
 	}
@@ -347,9 +380,13 @@ func (r *RunnerReconciler) buildDeployment(runner *garV1.Runner) *appsV1.Deploym
 					TerminationGracePeriodSeconds: func(i int64) *int64 {
 						return &i
 					}(30),
-					DNSPolicy:       coreV1.DNSClusterFirst,
-					SecurityContext: &coreV1.PodSecurityContext{},
-					SchedulerName:   coreV1.DefaultSchedulerName,
+					DNSPolicy: coreV1.DNSClusterFirst,
+					SecurityContext: &coreV1.PodSecurityContext{
+						SeccompProfile: &coreV1.SeccompProfile{
+							Type: coreV1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					SchedulerName: coreV1.DefaultSchedulerName,
 				},
 			},
 		},
@@ -368,22 +405,29 @@ FROM %s
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 RUN (command -v apt && apt update && apt install -y ca-certificates iputils-ping tar sudo git) || \
-      (command -v apt-get && apt-get update && apt-get install -y ca-certificates iputils-ping tar sudo git) || \
+      (command -v apt-get && apt-get update && apt-get install -y --no-install-recommends ca-certificates iputils-ping tar sudo git) || \
       (command -v dnf && dnf install -y ca-certificates iputils tar sudo git) || \
       (command -v yum && yum install -y ca-certificates iputils tar sudo git) || \
       (command -v zypper && zypper install -n ca-certificates iputils tar sudo git-core) || \
       (echo "Unknown OS version" && exit 1)
-RUN mkdir -p /opt/runner && mkdir -p /home/runner
-WORKDIR /opt/runner
-ADD https://github.com/kaidotdev/github-actions-runner-controller/releases/download/v%s/runner_%s_linux_amd64 runner 
-RUN chmod +x runner
-RUN ./runner --only-install --runner-version %s
+
+ADD https://github.com/kaidotdev/github-actions-runner-controller/releases/download/v%s/runner_%s_linux_amd64 /usr/local/bin/runner
+RUN chmod +x /usr/local/bin/runner
+
 RUN echo 'runner::60000:60000::/home/runner:/bin/sh' >> /etc/passwd
 RUN echo 'runner::60000:' >> /etc/group
-RUN chown -R runner:runner /opt/runner && chown -R runner:runner /home/runner
+RUN mkdir -p /home/runner && chown -R runner:runner /home/runner
+
+RUN echo "runner:!:0:0:99999:7:::" >> /etc/shadow
 RUN echo "runner ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo
-USER runner
-CMD ["./runner"]
+
+WORKDIR /home/runner
+
+RUN /usr/local/bin/runner --only-install --runner-version %s
+
+USER 60000
+
+ENTRYPOINT ["/usr/local/bin/runner"]
 `, runner.Spec.Image, r.BinaryVersion, r.BinaryVersion, r.RunnerVersion),
 		},
 	}
