@@ -218,7 +218,6 @@ func main() {
 	flag.StringVar(&repository, "repository", "kaidotdev/github-actions-runner-controller", "GitHub Repository Name")
 	flag.StringVar(&token, "token", "********", "GitHub Token")
 	flag.StringVar(&hostname, "hostname", "runner", "Hostname used as Runner name")
-	flag.StringVar(&token, "token", "********", "GitHub Token")
 	flag.StringVar(&githubAppId, "github-app-id", "", "GitHub App ID")
 	flag.StringVar(&githubAppInstallationId, "github-app-installation-id", "", "GitHub App Installation ID")
 	flag.StringVar(&githubAppPrivateKey, "github-app-private-key", "", "GitHub App Private Key")
