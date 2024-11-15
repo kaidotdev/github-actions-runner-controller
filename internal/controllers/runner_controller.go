@@ -16,6 +16,7 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -145,6 +146,12 @@ func (r *RunnerReconciler) buildRepositoryName(runner *garV1.Runner) string {
 }
 
 func (r *RunnerReconciler) buildBuilderContainer(runner *garV1.Runner) v1.Container {
+	if runner.Spec.BuilderContainerSpec.Resources.Limits == nil {
+		runner.Spec.BuilderContainerSpec.Resources.Limits = make(v1.ResourceList)
+	}
+	if runner.Spec.BuilderContainerSpec.Resources.Limits.Memory().IsZero() {
+		runner.Spec.BuilderContainerSpec.Resources.Limits[v1.ResourceMemory] = resource.MustParse("4Gi")
+	}
 	return v1.Container{
 		Name:            "kaniko",
 		Image:           r.KanikoImage,
@@ -221,13 +228,7 @@ func (r *RunnerReconciler) buildRunnerContainer(runner *garV1.Runner) v1.Contain
 	c := v1.Container{
 		Name: "runner",
 		SecurityContext: &v1.SecurityContext{
-			Privileged:               func(b bool) *bool { return &b }(false),
-			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
-			Capabilities: &v1.Capabilities{
-				Drop: []v1.Capability{
-					"ALL",
-				},
-			},
+			Privileged:             func(b bool) *bool { return &b }(false),
 			ReadOnlyRootFilesystem: func(b bool) *bool { return &b }(false),
 			RunAsUser:              func(i int64) *int64 { return &i }(60000),
 			RunAsNonRoot:           func(b bool) *bool { return &b }(true),
