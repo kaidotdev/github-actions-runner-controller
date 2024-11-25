@@ -1,9 +1,14 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -12,10 +17,12 @@ import (
 
 	dockerref "github.com/docker/distribution/reference"
 	"github.com/go-logr/logr"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/xerrors"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,28 +38,34 @@ import (
 const (
 	ownerKey               = ".metadata.controller"
 	optimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
+	expiresAtAnnotation    = "github-actions-runner.kaidotio.github.io/expiresAt"
 )
 
 type RunnerReconciler struct {
 	client.Client
-	Log                 logr.Logger
-	Scheme              *runtime.Scheme
-	Recorder            record.EventRecorder
-	PushRegistryHost    string
-	PullRegistryHost    string
-	EnableRunnerMetrics bool
-	ExporterImage       string
-	KanikoImage         string
-	BinaryVersion       string
-	RunnerVersion       string
-	Disableupdate       bool
+	Log                     logr.Logger
+	Scheme                  *runtime.Scheme
+	Recorder                record.EventRecorder
+	PushRegistryHost        string
+	PullRegistryHost        string
+	EnableRunnerMetrics     bool
+	ExporterImage           string
+	GitHubAppClientId       string
+	GitHubAppInstallationId string
+	GitHubAppPrivateKey     string
+	KanikoImage             string
+	BinaryVersion           string
+	RunnerVersion           string
+	Disableupdate           bool
 }
 
 func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var requeueAfter time.Duration
+
 	runner := &garV1.Runner{}
 	logger := r.Log.WithValues("runner", req.NamespacedName)
 	if err := r.Get(ctx, req.NamespacedName, runner); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -60,6 +73,69 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if err := r.cleanupOwnedResources(ctx, runner); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if r.GitHubAppClientId != "" && r.GitHubAppInstallationId != "" && r.GitHubAppPrivateKey != "" {
+		var tokenSecret v1.Secret
+		if err := r.Client.Get(
+			ctx,
+			client.ObjectKey{
+				Name:      req.Name,
+				Namespace: req.Namespace,
+			},
+			&tokenSecret,
+		); apierrors.IsNotFound(err) {
+			tokenSecret, err := r.createTokenSecret(runner)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if err := controllerutil.SetControllerReference(runner, tokenSecret, r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
+			if err := r.Create(ctx, tokenSecret); err != nil {
+				return ctrl.Result{}, err
+			}
+			r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulCreated", "Created token secret: %q", tokenSecret.Name)
+			logger.V(1).Info("create", "secret", tokenSecret)
+
+			expire, err := time.Parse(time.RFC3339, tokenSecret.Annotations[expiresAtAnnotation])
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			requeueAfter = expire.Sub(time.Now()) - time.Minute
+		} else if err != nil {
+			return ctrl.Result{}, err
+		} else {
+			expectedTokenSecret, err := r.createTokenSecret(runner)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if !reflect.DeepEqual(tokenSecret.Data, expectedTokenSecret.Data) ||
+				!reflect.DeepEqual(tokenSecret.StringData, expectedTokenSecret.StringData) {
+				tokenSecret.Annotations = expectedTokenSecret.Annotations
+				tokenSecret.Data = expectedTokenSecret.Data
+				tokenSecret.StringData = expectedTokenSecret.StringData
+
+				if err := r.Update(ctx, &tokenSecret); err != nil {
+					return ctrl.Result{}, err
+				}
+				r.Recorder.Eventf(runner, coreV1.EventTypeNormal, "SuccessfulUpdated", "Updated token secret: %q", tokenSecret.Name)
+				logger.V(1).Info("update", "secret", tokenSecret)
+
+				expire, err := time.Parse(time.RFC3339, tokenSecret.Annotations[expiresAtAnnotation])
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+				requeueAfter = expire.Sub(time.Now()) - time.Minute
+			}
+		}
+
+		runner.Spec.TokenSecretKeyRef = &coreV1.SecretKeySelector{
+			LocalObjectReference: coreV1.LocalObjectReference{
+				Name: req.Name,
+			},
+			Key: "GITHUB_TOKEN",
+		}
 	}
 
 	var workspaceConfigMap v1.ConfigMap
@@ -70,7 +146,7 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			Namespace: req.Namespace,
 		},
 		&workspaceConfigMap,
-	); errors.IsNotFound(err) {
+	); apierrors.IsNotFound(err) {
 		workspaceConfigMap = *r.buildWorkspaceConfigMap(runner)
 		if err := controllerutil.SetControllerReference(runner, &workspaceConfigMap, r.Scheme); err != nil {
 			return ctrl.Result{}, err
@@ -105,7 +181,7 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			Namespace: req.Namespace,
 		},
 		&deployment,
-	); errors.IsNotFound(err) {
+	); apierrors.IsNotFound(err) {
 		deployment = *r.buildDeployment(runner)
 		if err := controllerutil.SetControllerReference(runner, &deployment, r.Scheme); err != nil {
 			return ctrl.Result{}, err
@@ -133,7 +209,7 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (r *RunnerReconciler) buildRepositoryName(runner *garV1.Runner) string {
@@ -432,6 +508,98 @@ ENTRYPOINT ["/usr/local/bin/runner"]
 `, runner.Spec.Image, r.BinaryVersion, r.BinaryVersion, r.RunnerVersion),
 		},
 	}
+}
+
+func (r *RunnerReconciler) createTokenSecret(runner *garV1.Runner) (*v1.Secret, error) {
+	body := struct {
+		Repositories  []string          `json:"repositories"`
+		RepositoryIds []int             `json:"repository_ids"`
+		Permissions   map[string]string `json:"permissions"`
+	}{}
+
+	accessToken := struct {
+		Token     string `json:"token"`
+		ExpiresAt string `json:"expires_at"`
+	}{}
+
+	err, jwtToken := signJwt(r.GitHubAppPrivateKey, r.GitHubAppClientId)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to sign jwt: %w", err)
+	}
+
+	body.Repositories = []string{strings.SplitN(runner.Spec.Repository, "/", 2)[0]}
+	body.Permissions = map[string]string{
+		"actions":        "read",
+		"administration": "write",
+		"metadata":       "read",
+	}
+	b, err := json.Marshal(body)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to marshal body: %w", err)
+	}
+
+	accessTokenRequest, err := http.NewRequest("POST", fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", r.GitHubAppInstallationId), bytes.NewReader(b))
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create request: %w", err)
+	}
+
+	accessTokenRequest.Header.Set("Accept", "application/vnd.github+json")
+	accessTokenRequest.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *jwtToken))
+	accessTokenRequest.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	accessTokenResponse, err := http.DefaultClient.Do(accessTokenRequest)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to do request: %w", err)
+	}
+	defer func() {
+		_ = accessTokenResponse.Body.Close()
+	}()
+
+	if accessTokenResponse.StatusCode != http.StatusCreated {
+		return nil, xerrors.Errorf("failed to get access token: %d", accessTokenResponse.StatusCode)
+	}
+
+	if err := json.NewDecoder(accessTokenResponse.Body).Decode(&accessToken); err != nil {
+		return nil, xerrors.Errorf("failed to decode access token: %w", err)
+	}
+
+	return &v1.Secret{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      runner.Name,
+			Namespace: runner.Namespace,
+			Annotations: map[string]string{
+				expiresAtAnnotation: accessToken.ExpiresAt,
+			},
+		},
+		StringData: map[string]string{
+			"GITHUB_TOKEN": accessToken.Token,
+		},
+	}, nil
+}
+
+func signJwt(privateKey string, clientId string) (error, *string) {
+	block, _ := pem.Decode([]byte(privateKey))
+	if block == nil {
+		return xerrors.New("failed to decode private key"), nil
+	}
+
+	rsaPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return xerrors.Errorf("failed to parse private key: %w", err), nil
+	}
+
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"iat": now.Unix(),
+		"exp": now.Add(time.Minute * 10).Unix(),
+		"iss": clientId,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	jwtToken, err := token.SignedString(rsaPrivateKey)
+	if err != nil {
+		return xerrors.Errorf("failed to sign token: %w", err), nil
+	}
+	return nil, &jwtToken
 }
 
 func (r *RunnerReconciler) cleanupOwnedResources(ctx context.Context, runner *garV1.Runner) error {

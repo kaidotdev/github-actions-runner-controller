@@ -42,6 +42,9 @@ func main() {
 	var pullRegistryHost string
 	var enableRunnerMetrics bool
 	var exporterImage string
+	var githubAppClientId string
+	var githubAppInstallationId string
+	var githubAppPrivateKey string
 	var kanikoImage string
 	var binaryVersion string
 	var runnerVersion string
@@ -56,8 +59,11 @@ func main() {
 	flag.StringVar(&pullRegistryHost, "pull-registry-host", "ghcr.io/kaidotdev/github-actions-runner-controller", "Host of Docker Registry used as pull source.")
 	flag.BoolVar(&enableRunnerMetrics, "enable-runner-metrics", false, "Enable to expose runner metrics using prometheus exporter.")
 	flag.StringVar(&exporterImage, "exporter-image", "ghcr.io/kaidotdev/github-actions-exporter/github-actions-exporter:v0.1.1", "Docker Image of exporter used by exporter container")
+	flag.StringVar(&githubAppClientId, "github-app-client-id", "", "GitHub App Client ID")
+	flag.StringVar(&githubAppInstallationId, "github-app-installation-id", "", "GitHub App Installation ID")
+	flag.StringVar(&githubAppPrivateKey, "github-app-private-key", "", "GitHub App Private Key")
 	flag.StringVar(&kanikoImage, "kaniko-image", "gcr.io/kaniko-project/executor:v1.23.0", "Docker Image of kaniko used by builder container")
-	flag.StringVar(&binaryVersion, "binary-version", "0.4.2", "Version of own runner binary")
+	flag.StringVar(&binaryVersion, "binary-version", "0.4.3", "Version of own runner binary")
 	flag.StringVar(&runnerVersion, "runner-version", "2.321.0", "Version of GitHub Actions runner")
 	flag.BoolVar(&disableupdate, "disableupdate", false, "Disable self-hosted runner automatic update to the latest released version")
 	opts := zap.Options{}
@@ -108,18 +114,20 @@ func main() {
 	}
 
 	if err := (&controllers.RunnerReconciler{
-		Client:              m.GetClient(),
-		Scheme:              m.GetScheme(),
-		Log:                 ctrl.Log.WithName("controllers").WithName("Runner"),
-		Recorder:            m.GetEventRecorderFor("github-actions-runner-controller"),
-		PushRegistryHost:    pushRegistryHost,
-		PullRegistryHost:    pullRegistryHost,
-		EnableRunnerMetrics: enableRunnerMetrics,
-		ExporterImage:       exporterImage,
-		KanikoImage:         kanikoImage,
-		BinaryVersion:       binaryVersion,
-		RunnerVersion:       runnerVersion,
-		Disableupdate:       disableupdate,
+		Client:                  m.GetClient(),
+		Scheme:                  m.GetScheme(),
+		Log:                     ctrl.Log.WithName("controllers").WithName("Runner"),
+		Recorder:                m.GetEventRecorderFor("github-actions-runner-controller"),
+		PushRegistryHost:        pushRegistryHost,
+		PullRegistryHost:        pullRegistryHost,
+		EnableRunnerMetrics:     enableRunnerMetrics,
+		ExporterImage:           exporterImage,
+		GitHubAppClientId:       githubAppClientId,
+		GitHubAppInstallationId: githubAppInstallationId,
+		GitHubAppPrivateKey:     githubAppPrivateKey, KanikoImage: kanikoImage,
+		BinaryVersion: binaryVersion,
+		RunnerVersion: runnerVersion,
+		Disableupdate: disableupdate,
 	}).SetupWithManager(m); err != nil {
 		entrypointLogger.Error(err, "unable to create controller", "controller", "Runner")
 		os.Exit(1)
