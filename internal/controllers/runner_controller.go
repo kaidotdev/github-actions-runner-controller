@@ -75,7 +75,7 @@ func (r *RunnerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if r.GitHubAppClientId != "" && r.GitHubAppInstallationId != "" && r.GitHubAppPrivateKey != "" {
+	if runner.Spec.TokenSecretKeyRef == nil && r.GitHubAppClientId != "" && r.GitHubAppInstallationId != "" && r.GitHubAppPrivateKey != "" {
 		var tokenSecret v1.Secret
 		if err := r.Client.Get(
 			ctx,
