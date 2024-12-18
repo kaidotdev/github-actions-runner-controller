@@ -63,7 +63,7 @@ func main() {
 	flag.StringVar(&githubAppInstallationId, "github-app-installation-id", "", "GitHub App Installation ID")
 	flag.StringVar(&githubAppPrivateKey, "github-app-private-key", "", "GitHub App Private Key")
 	flag.StringVar(&kanikoImage, "kaniko-image", "gcr.io/kaniko-project/executor:v1.23.0", "Docker Image of kaniko used by builder container")
-	flag.StringVar(&binaryVersion, "binary-version", "0.4.4", "Version of own runner binary")
+	flag.StringVar(&binaryVersion, "binary-version", "0.4.5", "Version of own runner binary")
 	flag.StringVar(&runnerVersion, "runner-version", "2.321.0", "Version of GitHub Actions runner")
 	flag.BoolVar(&disableupdate, "disableupdate", false, "Disable self-hosted runner automatic update to the latest released version")
 	opts := zap.Options{}
