@@ -527,7 +527,7 @@ func (r *RunnerReconciler) createTokenSecret(runner *garV1.Runner) (*v1.Secret, 
 		return nil, xerrors.Errorf("failed to sign jwt: %w", err)
 	}
 
-	body.Repositories = []string{strings.SplitN(runner.Spec.Repository, "/", 2)[0]}
+	body.Repositories = []string{strings.SplitN(runner.Spec.Repository, "/", 2)[1]}
 	body.Permissions = map[string]string{
 		"actions":        "read",
 		"administration": "write",
